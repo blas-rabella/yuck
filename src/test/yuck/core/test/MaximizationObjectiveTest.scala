@@ -2,7 +2,7 @@ package yuck.core.test
 
 import org.junit.*
 
-import yuck.core.*
+import yuck.core.{given, *}
 import yuck.test.util.UnitTest
 
 /**
@@ -65,6 +65,7 @@ final class MaximizationObjectiveTest extends UnitTest {
     def testSearchForActualObjectiveValue(): Unit = {
         space
             .post(new DummyConstraint(space.nextConstraintId(), List(x), Nil))
+            .registerObjectiveVariable(x)
             .initialize()
         for (a <- x.domain.values) {
             space.setValue(x, a)

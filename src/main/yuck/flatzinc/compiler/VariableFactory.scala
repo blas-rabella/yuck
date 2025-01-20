@@ -1,12 +1,14 @@
 package yuck.flatzinc.compiler
 
-import yuck.core.*
+import scala.collection.*
+
+import yuck.core.{given, *}
 import yuck.flatzinc.ast.*
 
 /**
- * Generates Yuck variables from FlatZinc variable definitions.
+ * Generates Yuck variables from FlatZinc parameter and variable declarations.
  *
- * For each class of FlatZinc variables that, in earlier phases, were identified to
+ * For each class of FlatZinc parameters and variables that, in earlier phases, were identified to
  * be equivalent, a representative is chosen and only for this representative a Yuck
  * variable is introduced.
  *
@@ -19,109 +21,75 @@ final class VariableFactory
     extends CompilationPhase
 {
 
-    private val domains = cc.domains
-    private val vars = cc.vars
-    private val equalVars = cc.equalVars
-    private val arrays = cc.arrays
-    private val space = cc.space
-
     override def run() = {
-        cc.ast.paramDecls.foreach(createParameter)
-        cc.ast.varDecls.foreach(createVariable)
+        cc.ast.paramDecls.iterator.filterNot(_.valueType.isArrayType).foreach(createVariable)
+        cc.ast.paramDecls.iterator.filter(_.valueType.isArrayType).foreach(createVariables)
+        cc.ast.varDecls.iterator.filterNot(_.valueType.isArrayType).foreach(createVariable)
+        cc.ast.varDecls.iterator.filter(_.valueType.isArrayType).foreach(createVariables)
     }
 
     import HighPriorityImplicits.*
 
-    private def createParameter(decl: ParamDecl): Unit = {
-        decl.paramType match {
-            case BoolType =>
-                val x = compileExpr[BooleanValue](decl.value)
-                vars += Term(decl.id, Nil) -> x
-            case IntType(_) =>
-                val x = compileExpr[IntegerValue](decl.value)
-                vars += Term(decl.id, Nil) -> x
-            case IntSetType(_) =>
-                val x = compileExpr[IntegerSetValue](decl.value)
-                vars += Term(decl.id, Nil) -> x
-            case ArrayType(Some(IntRange(1, n)), BoolType) =>
-                val array = compileArray[BooleanValue](decl.value)
-                assert(array.size == n)
-                arrays += Term(decl.id, Nil) -> array
-            case ArrayType(Some(IntRange(1, n)), IntType(_)) =>
-                val array = compileArray[IntegerValue](decl.value)
-                assert(array.size == n)
-                arrays += Term(decl.id, Nil) -> array
-            case ArrayType(Some(IntRange(1, n)), IntSetType(_)) =>
-                val array = compileArray[IntegerSetValue](decl.value)
-                assert(array.size == n)
-                arrays += Term(decl.id, Nil) -> array
-            case other =>
-                throw new UnsupportedFlatZincTypeException(other)
-        }
-    }
-
-    private def createVariable(decl: VarDecl): Unit = {
-        decl.varType match {
+    private def createVariable(decl: PlaceholderDecl): Unit = {
+        decl.valueType match {
             case BoolType =>
                 createVariable[BooleanValue](Term(decl.id, Nil))
             case IntType(_) =>
                 createVariable[IntegerValue](Term(decl.id, Nil))
             case IntSetType(_) =>
                 createVariable[IntegerSetValue](Term(decl.id, Nil))
+            case other =>
+                throw new UnsupportedFlatZincTypeException(other)
+        }
+    }
+
+    private def createVariables(decl: PlaceholderDecl): Unit = {
+        decl.valueType match {
             case ArrayType(Some(IntRange(1, n)), BoolType) =>
-                val array =
-                    for (idx <- 1 to n.toInt) yield {
-                        val name = "%s[%d]".format(decl.id, idx)
-                        val key = ArrayAccess(decl.id, IntConst(idx))
-                        createVariable[BooleanValue](key)
-                    }
-                arrays += Term(decl.id, Nil) -> array
+                cc.arrays += Term(decl.id, Nil) -> createArray[BooleanValue](decl, n.toInt)
             case ArrayType(Some(IntRange(1, n)), IntType(_)) =>
-                val array =
-                    for (idx <- 1 to n.toInt) yield {
-                        val name = "%s[%d]".format(decl.id, idx)
-                        val key = ArrayAccess(decl.id, IntConst(idx))
-                        createVariable[IntegerValue](key)
-                    }
-                arrays += Term(decl.id, Nil) -> array
+                cc.arrays += Term(decl.id, Nil) -> createArray[IntegerValue](decl, n.toInt)
             case ArrayType(Some(IntRange(1, n)), IntSetType(_)) =>
-                val array =
-                    for (idx <- 1 to n.toInt) yield {
-                        val name = "%s[%d]".format(decl.id, idx)
-                        val key = ArrayAccess(decl.id, IntConst(idx))
-                        createVariable[IntegerSetValue](key)
-                    }
-                arrays += Term(decl.id, Nil) -> array
+                cc.arrays += Term(decl.id, Nil) -> createArray[IntegerSetValue](decl, n.toInt)
             case other =>
                 throw new UnsupportedFlatZincTypeException(other)
         }
     }
 
     private def createVariable
-        [V <: OrderedValue[V]]
+        [V <: Value[V]]
         (key: Expr)
-        (implicit valueTraits: OrderedValueTraits[V]):
-        OrderedVariable[V] =
+        (using valueTraits: ValueTraits[V]):
+        Variable[V] =
     {
         def factory(key: Expr) =
-            valueTraits.createVariable(space, key.toString, valueTraits.safeDowncast(domains(key)))
-        val maybeEqualVars = equalVars.get(key)
+            valueTraits.createVariable(cc.space, key.toString, valueTraits.safeDowncast(cc.domains(key)))
+        val maybeEqualVars = cc.equalVars.get(key)
         if (maybeEqualVars.isDefined) {
             val representative = maybeEqualVars.get.head
-            if (! vars.contains(representative)) {
-                vars += representative -> factory(representative)
+            if (! cc.vars.contains(representative)) {
+                cc.vars += representative -> factory(representative)
             }
-            val x = valueTraits.safeDowncast(vars(representative))
+            val x = valueTraits.safeDowncast(cc.vars(representative))
             if (key != representative) {
-                vars += key -> x
+                cc.vars += key -> x
             }
             x
         }
         else {
             val x = factory(key)
-            vars += key -> x
+            cc.vars += key -> x
             x
         }
+    }
+
+    private def createArray
+        [V <: Value[V]]
+        (decl: PlaceholderDecl, n: Int)
+        (using valueTraits: ValueTraits[V]):
+        immutable.IndexedSeq[Variable[V]] =
+    {
+        Vector.tabulate(n)(idx => createVariable(ArrayAccess(decl.id, IntConst(idx + 1))))
     }
 
 }

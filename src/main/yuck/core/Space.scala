@@ -9,6 +9,8 @@ import scala.jdk.CollectionConverters.*
 import yuck.util.arm.Sigint
 import yuck.util.logging.LazyLogger
 
+import scala.reflect.ClassTag
+
 /**
  * This class is used for building and managing a constraint network,
  * it manages a search state, and it provides services for assessing
@@ -31,9 +33,9 @@ final class Space(
 {
 
     private val constraints = new mutable.HashSet[Constraint] // maintained by post and removeUselessConstraints
-    private val implicitConstraints = new mutable.HashSet[Constraint] // maintained by markAsImplicit
+    private val implicitConstraints = new mutable.HashSet[Constraint] // maintained by registerImplicitConstraint
     private val inVariables = new mutable.HashSet[AnyVariable] // maintained by post
-    private val inVariablesOfImplicitConstraints = new mutable.HashSet[AnyVariable] // maintained by markAsImplicit
+    private val inVariablesOfImplicitConstraints = new mutable.HashSet[AnyVariable] // maintained by registerImplicitConstraint
     private val outVariables = new mutable.HashSet[AnyVariable] // maintained by post
 
     // The inflow model allows to find out which constraints are affected by changing
@@ -148,9 +150,9 @@ final class Space(
 
     /** Convenience method for creating variables. */
     def createVariable
-        [V <: AnyValue]
+        [V <: Value[V]]
         (name: String, domain: Domain[V])
-        (implicit valueTraits: ValueTraits[V]):
+        (using valueTraits: ValueTraits[V]):
         Variable[V] =
     {
         valueTraits.createVariable(this, name, domain)
@@ -161,12 +163,11 @@ final class Space(
     /**
      * Registers the given variable as objective variable.
      *
-     * There is no need to register objective variables but registering them will
-     * speed up consultation.
+     * You need to register all variables for which you want to observe effects
+     * due to consultation.
      *
-     * Important: When you decide to register objective variables, you have to
-     * register all of them, otherwise the result of consultation will not provide the
-     * effects on the variables that were not registered.
+     * Notice that registering other variables will do no harm except for slowing down
+     * consultation.
      */
     def registerObjectiveVariable(x: AnyVariable): Space = {
         objectiveVariables += x
@@ -175,22 +176,10 @@ final class Space(
 
     /** Returns true iff the given variable is an objective variable. */
     inline def isObjectiveVariable(x: AnyVariable): Boolean =
-        objectiveVariables.isEmpty || objectiveVariables.contains(x)
-
-    private val outputVariables = new mutable.HashSet[AnyVariable]
-
-    /** Registers the given variable as output variable. */
-    def registerOutputVariable(x: AnyVariable): Space = {
-        outputVariables += x
-        this
-    }
-
-    /** Returns true iff the given variable is an output variable. */
-    inline def isOutputVariable(x: AnyVariable): Boolean =
-        outputVariables.isEmpty || outputVariables.contains(x)
+        objectiveVariables.contains(x)
 
     /** Assigns the given value to the given variable. */
-    def setValue[V <: AnyValue](x: Variable[V], a: V): Space = {
+    def setValue[V <: Value[V]](x: Variable[V], a: V): Space = {
         if (checkAssignmentsToNonChannelVariables && (isProblemParameter(x) || isSearchVariable(x))) {
             require(
                 x.domain.contains(a),
@@ -362,12 +351,47 @@ final class Space(
         this
     }
 
+    /** Counts how often retract was called. */
+    var numberOfRetractions = 0
+
+    /**
+     * Retracts the given constraint.
+     *
+     * Throws if the given constraint feeds into another constraint.
+     */
+    def retract(constraint: Constraint): Space = {
+        logger.loggg("Retracting %s".format(constraint))
+        require(
+            constraint.outVariables.forall(x => directlyAffectedConstraints(x).isEmpty),
+            "%s feeds into another constraint".format(constraint))
+        for (x <- constraint.inVariables.toSet) {
+            deregisterInflow(x, constraint)
+        }
+        for (x <- constraint.outVariables) {
+            deregisterOutflow(x)
+        }
+        removeFromFlowModel(constraint)
+        constraints -= constraint
+        if (isImplicitConstraint(constraint)) {
+            implicitConstraints -= constraint
+            inVariablesOfImplicitConstraints --= constraint.inVariables
+        }
+        objectiveVariables --= constraint.outVariables
+        constraintOrder = null
+        numberOfRetractions += 1
+        this
+    }
+
     /** Returns the number of constraints that were posted. */
     def numberOfConstraints: Int = constraints.size
 
-    /** Returns the number of constraints that were posted and satisfy the given predicate. */
+    /** Returns the number of posted constraints which satisfy the given predicate. */
     def numberOfConstraints(p: Constraint => Boolean): Int =
         constraints.count(p)
+
+    /** Returns the number of posted constraints of the given type. */
+    def numberOfConstraints[T <: Constraint](using classTag: ClassTag[T]): Int =
+        numberOfConstraints(classTag.runtimeClass.isInstance)
 
     /**
      * Registers the given constraint as implicit.
@@ -404,38 +428,15 @@ final class Space(
     /** Returns the number of constraints that were posted and later registered as implicit. */
     def numberOfImplicitConstraints: Int = implicitConstraints.size
 
-    /**
-     * This method finds and removes useless constraints.
-     *
-     * A constraint is considered useful if one of its output variables is an objective or output variable
-     * or input to another constraint.
-     */
-    def removeUselessConstraints(): Space = {
+    /** Finds and retracts useless constraints. */
+    def retractUselessConstraints(isUseless: Constraint => Boolean): Space = {
         val uselessConstraints = new mutable.HashSet[Constraint]
         while {
             uselessConstraints.clear()
-            for (constraint <- constraints) {
-                if (! isImplicitConstraint(constraint) &&
-                    constraint.outVariables.forall(
-                        x => ! isOutputVariable(x) && ! isObjectiveVariable(x) && directlyAffectedConstraints(x).isEmpty))
-                {
-                    uselessConstraints += constraint
-                }
-            }
-            for (constraint <- uselessConstraints) {
-                logger.log("Removing useless constraint %s".format(constraint))
-                for (x <- constraint.inVariables.toSet) {
-                    deregisterInflow(x, constraint)
-                }
-                for (x <- constraint.outVariables) {
-                    deregisterOutflow(x)
-                }
-                removeFromFlowModel(constraint)
-                constraints -= constraint
-            }
-            (! uselessConstraints.isEmpty)
+            constraints.view.filter(isUseless).foreach(uselessConstraints.add)
+            uselessConstraints.foreach(retract)
+            !uselessConstraints.isEmpty
         } do ()
-        constraintOrder = null
         this
     }
 

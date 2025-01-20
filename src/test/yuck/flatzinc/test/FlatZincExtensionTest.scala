@@ -4,9 +4,9 @@ import org.junit.*
 import org.junit.experimental.categories.*
 
 import scala.language.implicitConversions
-
 import yuck.constraints.*
-import yuck.core.*
+import yuck.core.{*, given}
+import yuck.flatzinc.compiler.Bool2Costs1
 import yuck.flatzinc.test.util.*
 import yuck.test.util.ParallelTestRunner
 
@@ -21,8 +21,9 @@ final class FlatZincExtensionTest extends FrontEndTest {
     @Test
     @Category(Array(classOf[MinimizationProblem], classOf[HasDisjunctiveConstraint]))
     def testBool2CostsFunction(): Unit = {
-        val result = solveWithResult(task.copy(problemName = "bool2costs_function_test"))
-        assertEq(result.numberOfConstraints[Disjoint2], 1)
+        val result = solveWithResult(task.copy(problemName = "bool2costs_function_test", verificationFrequency = VerifyOnlyLastSolution))
+        assertEq(result.space.numberOfConstraints[Disjoint2], 1)
+        assertEq(result.space.numberOfConstraints[Bool2Costs1], 1)
         assertEq(result.quality, Zero)
     }
 
@@ -38,8 +39,8 @@ final class FlatZincExtensionTest extends FrontEndTest {
     @Test
     @Category(Array(classOf[MaximizationProblem], classOf[HasBinPackingConstraint]))
     def testIntMaxGoal(): Unit = {
-        val result = solveWithResult(task.copy(problemName = "int_max_goal_test", verifySolution = false))
-        assertEq(result.numberOfConstraints[BinPacking[_]], 1)
+        val result = solveWithResult(task.copy(problemName = "int_max_goal_test", verificationFrequency = NoVerification))
+        assertEq(result.space.numberOfConstraints[BinPacking[_]], 1)
         assertEq(result.quality(0), True)
         assertEq(result.quality(1), Ten)
         assertEq(result.quality(2), Eight)
@@ -49,8 +50,8 @@ final class FlatZincExtensionTest extends FrontEndTest {
     @Test
     @Category(Array(classOf[MinimizationProblem], classOf[HasBinPackingConstraint]))
     def testIntMinGoal(): Unit = {
-        val result = solveWithResult(task.copy(problemName = "int_min_goal_test", verifySolution = false))
-        assertEq(result.numberOfConstraints[BinPacking[_]], 1)
+        val result = solveWithResult(task.copy(problemName = "int_min_goal_test", verificationFrequency = NoVerification))
+        assertEq(result.space.numberOfConstraints[BinPacking[_]], 1)
         assertEq(result.quality(0), True)
         assertEq(result.quality(1), Three)
         assertEq(result.quality(2), Eight)
@@ -60,8 +61,8 @@ final class FlatZincExtensionTest extends FrontEndTest {
     @Test
     @Category(Array(classOf[SatisfiabilityProblem], classOf[HasAlldifferentConstraint]))
     def testSatGoal(): Unit = {
-        val result = solveWithResult(task.copy(problemName = "sat_goal_test", verifySolution = false))
-        assertEq(result.numberOfConstraints[Alldistinct[_]], 1)
+        val result = solveWithResult(task.copy(problemName = "sat_goal_test", verificationFrequency = NoVerification))
+        assertEq(result.space.numberOfConstraints[Alldistinct[_]], 1)
         assertEq(result.quality(0), True)
         assertEq(result.quality(1), False)
     }
@@ -69,7 +70,7 @@ final class FlatZincExtensionTest extends FrontEndTest {
     @Test
     @Category(Array(classOf[SatisfiabilityProblem]))
     def testWarmStartFromSolution(): Unit = {
-        val result = solveWithResult(task.copy(problemName = "warm_start_test_from_solution"))
+        val result = solveWithResult(task.copy(problemName = "warm_start_from_solution_test"))
         assert(result.isSolution)
         assert(result.warmStartWasPerformed)
         assertEq(
@@ -81,7 +82,7 @@ final class FlatZincExtensionTest extends FrontEndTest {
     @Test
     @Category(Array(classOf[SatisfiabilityProblem]))
     def testWarmStartFromPartialSolution(): Unit = {
-        val result = solveWithResult(task.copy(problemName = "warm_start_test_from_partial_solution"))
+        val result = solveWithResult(task.copy(problemName = "warm_start_from_partial_solution_test"))
         assert(result.isSolution)
         assert(result.warmStartWasPerformed)
         assert(result.searchWasPerformed)
@@ -90,7 +91,7 @@ final class FlatZincExtensionTest extends FrontEndTest {
     @Test
     @Category(Array(classOf[SatisfiabilityProblem]))
     def testWarmStartFromInvalidSolution(): Unit = {
-        val result = solveWithResult(task.copy(problemName = "warm_start_test_from_invalid_solution"))
+        val result = solveWithResult(task.copy(problemName = "warm_start_from_invalid_solution_test"))
         assert(result.isSolution)
         assert(result.warmStartWasPerformed)
         assert(result.searchWasPerformed)
@@ -103,7 +104,7 @@ final class FlatZincExtensionTest extends FrontEndTest {
         assert(result.isSolution)
         assert(result.warmStartWasPerformed)
         assertEq(
-            result.searchVariables.toSeq.sortBy(_.name).map(result.assignment.value),
+            result.space.searchVariables.toSeq.sortBy(_.name).map(result.assignment.value),
             Seq(Three, Two, Two, One, Two, One))
         assert(! result.searchWasPerformed)
     }

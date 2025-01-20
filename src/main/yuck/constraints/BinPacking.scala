@@ -29,7 +29,7 @@ final class BinPacking
     (id: Id[Constraint], override val maybeGoal: Option[Goal],
      items: immutable.Seq[BinPackingItem[Load]],
      loads: immutable.Map[Int, Variable[Load]]) // bin -> load
-    (implicit valueTraits: NumericalValueTraits[Load])
+    (using valueTraits: NumericalValueTraits[Load])
     extends Constraint(id)
 {
 
@@ -45,12 +45,10 @@ final class BinPacking
     override def inVariables = items.view.filter(_.weight > valueTraits.zero).map(_.bin)
     override def outVariables = loads.view.values
 
-    private val x2Item =
-        (for (item <- items) yield item.bin -> item).toMap[AnyVariable, BinPackingItem[Load]]
+    private val x2Item = (for (item <- items) yield item.bin -> item).toMap[AnyVariable, BinPackingItem[Load]]
     private val currentLoads = new mutable.HashMap[Int, Load] // bin -> load
     private val loadDeltas = new mutable.HashMap[Int, Load] // bin -> load delta
-    private val effects = // bin -> effect
-        (for ((i, load) <- loads) yield i -> load.reuseableEffect).toMap
+    private val effects = for ((i, load) <- loads) yield i -> load.reuseableEffect // bin -> effect
 
     override def initialize(now: SearchState) = {
         currentLoads.clear()

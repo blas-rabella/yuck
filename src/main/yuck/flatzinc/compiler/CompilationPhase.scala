@@ -3,7 +3,7 @@ package yuck.flatzinc.compiler
 import scala.collection.*
 import scala.language.implicitConversions
 
-import yuck.core.*
+import yuck.core.{given, *}
 import yuck.flatzinc.ast.*
 import yuck.flatzinc.parser.*
 
@@ -20,26 +20,26 @@ abstract class CompilationPhase extends Runnable {
         a.isConst || cc.domains(a).isSingleton
 
     protected final def compilesToConst
-        [V <: AnyValue]
+        [V <: Value[V]]
         (a: Expr, b: V)
-        (implicit valueTraits: ValueTraits[V]): Boolean =
+        (using valueTraits: ValueTraits[V]): Boolean =
     {
         val maybeC = tryGetAnyConst(a)
-        (! maybeC.isEmpty && valueTraits.safeDowncast(maybeC.get) == b)
+        maybeC.isDefined && valueTraits.safeDowncast(maybeC.get) == b
     }
 
     protected final def getConst
-        [V <: AnyValue]
+        [V <: Value[V]]
         (a: Expr)
-        (implicit valueTraits: ValueTraits[V]): V =
+        (using valueTraits: ValueTraits[V]): V =
     {
         tryGetConst(a).get
     }
 
     protected final def tryGetConst
-        [V <: AnyValue]
+        [V <: Value[V]]
         (a: Expr)
-        (implicit valueTraits: ValueTraits[V]): Option[V] =
+        (using valueTraits: ValueTraits[V]): Option[V] =
     {
         tryGetAnyConst(a).map(valueTraits.safeDowncast)
     }
@@ -67,7 +67,7 @@ abstract class CompilationPhase extends Runnable {
 
     protected final def normalizeArray(a: Expr): Expr = a match {
         case ArrayConst(a) => ArrayConst(a)
-        case a => ArrayConst(getArrayElems(a).toList)
+        case a => ArrayConst(getArrayElems(a))
     }
 
     protected final def boolDomain(a: Expr): BooleanDomain = a match {
@@ -112,7 +112,7 @@ abstract class CompilationPhase extends Runnable {
             x
         case FloatConst(_) =>
             throw new UnsupportedFlatZincTypeException(FloatType(None))
-        case Term(id, Nil) =>
+        case Term(_, Nil) =>
             cc.vars(expr)
         case ArrayAccess(id, IntConst(idx)) =>
             cc.arrays(Term(id, Nil))(safeToInt(idx - 1))
@@ -121,15 +121,15 @@ abstract class CompilationPhase extends Runnable {
     protected final def compileAnyArray(expr: Expr): immutable.IndexedSeq[AnyVariable] = expr match {
         case _ if cc.arrayConsts.contains(expr) =>
             cc.arrayConsts(expr)
-        case Term(id, Nil) =>
+        case Term(_, Nil) =>
             cc.arrays(expr)
         case ArrayConst(elems) =>
-            val array = elems.iterator.map(elem => compileAnyExpr(elem)).to(immutable.ArraySeq)
+            val array = elems.iterator.map(elem => compileAnyExpr(elem)).toVector
             cc.arrayConsts += expr -> array
             array
     }
 
-    protected final def getArrayElems(expr: Expr): immutable.Iterable[Expr] =
+    protected final def getArrayElems(expr: Expr): immutable.IndexedSeq[Expr] =
         cc.ast.getArrayElems(expr)
 
     protected trait LowestPriorityImplicits {
@@ -177,7 +177,7 @@ abstract class CompilationPhase extends Runnable {
         implicit final def compileOrdExpr
             [V <: OrderedValue[V]]
             (expr: Expr)
-            (implicit valueTraits: OrderedValueTraits[V]):
+            (using valueTraits: OrderedValueTraits[V]):
             OrderedVariable[V] =
         {
             valueTraits.safeDowncast(compileAnyExpr(expr))
@@ -186,7 +186,7 @@ abstract class CompilationPhase extends Runnable {
         implicit final def compileOrdArray
             [V <: OrderedValue[V]]
             (expr: Expr)
-            (implicit valueTraits: OrderedValueTraits[V]):
+            (using valueTraits: OrderedValueTraits[V]):
             immutable.IndexedSeq[OrderedVariable[V]] =
         {
             val xs = compileAnyArray(expr)
@@ -201,7 +201,7 @@ abstract class CompilationPhase extends Runnable {
         implicit final def compileNumExpr
             [V <: NumericalValue[V]]
             (expr: Expr)
-            (implicit valueTraits: NumericalValueTraits[V]):
+            (using valueTraits: NumericalValueTraits[V]):
             NumericalVariable[V] =
         {
             valueTraits.safeDowncast(compileAnyExpr(expr))
@@ -210,7 +210,7 @@ abstract class CompilationPhase extends Runnable {
         implicit final def compileNumArray
             [V <: NumericalValue[V]]
             (expr: Expr)
-            (implicit valueTraits: NumericalValueTraits[V]):
+            (using valueTraits: NumericalValueTraits[V]):
             immutable.IndexedSeq[NumericalVariable[V]] =
         {
             val xs = compileAnyArray(expr)
@@ -223,18 +223,18 @@ abstract class CompilationPhase extends Runnable {
     protected object HighPriorityImplicits extends MediumPriorityImplicits {
 
         implicit final def compileExpr
-            [V <: AnyValue]
+            [V <: Value[V]]
             (expr: Expr)
-            (implicit valueTraits: ValueTraits[V]):
+            (using valueTraits: ValueTraits[V]):
             Variable[V] =
         {
             valueTraits.safeDowncast(compileAnyExpr(expr))
         }
 
         implicit final def compileArray
-            [V <: AnyValue]
+            [V <: Value[V]]
             (expr: Expr)
-            (implicit valueTraits: ValueTraits[V]):
+            (using valueTraits: ValueTraits[V]):
             immutable.IndexedSeq[Variable[V]] =
         {
             val xs = compileAnyArray(expr)
@@ -255,8 +255,9 @@ abstract class CompilationPhase extends Runnable {
         else IntegerSetValueTraits.createVariable(cc.space, a.toString, new SingletonIntegerSetDomain(a))
 
     protected final def createChannel
-        [V <: AnyValue]
-        (implicit valueTraits: ValueTraits[V]):
+        [V <: Value[V]]
+        ()
+        (using valueTraits: ValueTraits[V]):
         Variable[V] =
     {
         valueTraits.createChannel(cc.space)
@@ -264,7 +265,8 @@ abstract class CompilationPhase extends Runnable {
 
     protected final def createOrdChannel
         [V <: OrderedValue[V]]
-        (implicit valueTraits: OrderedValueTraits[V]):
+        ()
+        (using valueTraits: OrderedValueTraits[V]):
         OrderedVariable[V] =
     {
         valueTraits.createChannel(cc.space)
@@ -272,7 +274,8 @@ abstract class CompilationPhase extends Runnable {
 
     protected final def createNumChannel
         [V <: NumericalValue[V]]
-        (implicit valueTraits: NumericalValueTraits[V]):
+        ()
+        (using valueTraits: NumericalValueTraits[V]):
         NumericalVariable[V] =
     {
         valueTraits.createChannel(cc.space)
@@ -280,25 +283,26 @@ abstract class CompilationPhase extends Runnable {
 
     protected final def createNonNegativeChannel
         [V <: NumericalValue[V]]
-        (implicit valueTraits: NumericalValueTraits[V]):
+        ()
+        (using valueTraits: NumericalValueTraits[V]):
         NumericalVariable[V] =
     {
         valueTraits.createVariable(cc.space, "", valueTraits.nonNegativeDomain)
     }
 
-    protected final def createBoolChannel: BooleanVariable = BooleanValueTraits.createChannel(cc.space)
-    protected final def createIntChannel: IntegerVariable = IntegerValueTraits.createChannel(cc.space)
-    protected final def createNonNegativeIntChannel: IntegerVariable = {
-        val x = createIntChannel
+    protected final def createBoolChannel(): BooleanVariable = BooleanValueTraits.createChannel(cc.space)
+    protected final def createIntChannel(): IntegerVariable = IntegerValueTraits.createChannel(cc.space)
+    protected final def createNonNegativeIntChannel(): IntegerVariable = {
+        val x = createIntChannel()
         x.pruneDomain(NonNegativeIntegerRange)
         x
     }
-    protected final def createIntSetChannel: IntegerSetVariable = IntegerSetValueTraits.createChannel(cc.space)
+    protected final def createIntSetChannel(): IntegerSetVariable = IntegerSetValueTraits.createChannel(cc.space)
 
-    protected abstract class CompilationHelper[V <: AnyValue, Variable <: yuck.core.Variable[V]] {
+    protected abstract class CompilationHelper[V <: Value[V], Variable <: yuck.core.Variable[V]] {
         def compileExpr(expr: Expr): Variable
         def compileArray(expr: Expr): immutable.IndexedSeq[Variable]
-        def createChannel: Variable
+        def createChannel(): Variable
     }
 
     protected abstract class OrderedCompilationHelper[V <: OrderedValue[V], Variable <: OrderedVariable[V]]
@@ -307,25 +311,25 @@ abstract class CompilationPhase extends Runnable {
     protected abstract class NumericalCompilationHelper[V <: NumericalValue[V], Variable <: NumericalVariable[V]]
     extends OrderedCompilationHelper[V, Variable]
 
-    implicit protected object BooleanCompilationHelper extends OrderedCompilationHelper[BooleanValue, BooleanVariable] {
+    protected given booleanCompilationHelper: OrderedCompilationHelper[BooleanValue, BooleanVariable] with {
         import HighPriorityImplicits.*
         override def compileExpr(expr: Expr) = compileBoolExpr(expr)
         override def compileArray(expr: Expr) = compileBoolArray(expr)
-        override def createChannel = createBoolChannel
+        override def createChannel() = createBoolChannel()
     }
 
-    implicit protected object IntegerCompilationHelper extends NumericalCompilationHelper[IntegerValue, IntegerVariable] {
+    protected given integerCompilationHelper: NumericalCompilationHelper[IntegerValue, IntegerVariable] with {
         import HighPriorityImplicits.*
         override def compileExpr(expr: Expr) = compileIntExpr(expr)
         override def compileArray(expr: Expr) = compileIntArray(expr)
-        override def createChannel = createIntChannel
+        override def createChannel() = createIntChannel()
     }
 
-    implicit protected object IntegerSetCompilationHelper extends OrderedCompilationHelper[IntegerSetValue, IntegerSetVariable] {
+    protected given integerSetCompilationHelper: OrderedCompilationHelper[IntegerSetValue, IntegerSetVariable] with {
         import HighPriorityImplicits.*
         override def compileExpr(expr: Expr) = compileIntSetExpr(expr)
         override def compileArray(expr: Expr) = compileIntSetArray(expr)
-        override def createChannel = createIntSetChannel
+        override def createChannel() = createIntSetChannel()
     }
 
     protected final def nextConstraintId(): Id[yuck.core.Constraint] =
@@ -334,7 +338,7 @@ abstract class CompilationPhase extends Runnable {
     implicit protected final def xs2axs
         [V <: NumericalValue[V]]
         (xs: immutable.IndexedSeq[NumericalVariable[V]])
-        (implicit valueTraits: NumericalValueTraits[V]):
+        (using valueTraits: NumericalValueTraits[V]):
         immutable.IndexedSeq[AX[V]] =
     {
         for (x <- xs) yield new AX(valueTraits.one, x)

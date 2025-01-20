@@ -21,9 +21,9 @@ object FlatZincParser extends RegexParsers {
         regex(new Regex("(\\+|-)?[0-9]+")) ^? (
             new PartialFunction[String, IntConst]() {
                 override def isDefinedAt(s: String) =
-                    Exception.catching[Int](classOf[NumberFormatException]).opt{s.toInt}.isDefined
+                    Exception.catching[Long](classOf[NumberFormatException]).opt{s.toLong}.isDefined
                 override def apply(s: String) =
-                    IntConst(s.toInt)
+                    IntConst(s.toLong)
             },
             s => String.format("Invalid integer literal %s", s))
     lazy val float_const_with_fractional_part: Parser[String] =
@@ -59,7 +59,7 @@ object FlatZincParser extends RegexParsers {
         int_range ^^ (r => IntSetConst(r)) |
         int_set ^^ (s => IntSetConst(s))
     lazy val array_const: Parser[ArrayConst] =
-        "[" ~> repsep(expr, ",") <~ "]" ^^ ArrayConst.apply
+        "[" ~> repsep(expr, ",") <~ "]" ^^ (elems => ArrayConst(elems.toVector))
     lazy val array_access: Parser[ArrayAccess] =
         identifier ~ ("[" ~> expr <~ "]") ^^ {
             case id ~ idx => ArrayAccess(id, idx)
@@ -107,8 +107,8 @@ object FlatZincParser extends RegexParsers {
     lazy val pred_param_type: Parser[Type] =
         param_type | var_type
     lazy val pred_param: Parser[PredParam] =
-        (pred_param_type <~ ":") ~ identifier ^^ {
-            case paramType ~ id => PredParam(id, paramType)
+        (pred_param_type <~ ":") ~ identifier ~ (annotation*) ^^ {
+            case paramType ~ id ~ annotations => PredParam(id, paramType, annotations)
         }
     lazy val pred_decl: Parser[PredDecl] =
         "predicate" ~> identifier ~ ("(" ~> repsep(pred_param, ",") <~ ")") <~ ";" ^^ {

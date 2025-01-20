@@ -2,7 +2,7 @@ package yuck.core.test
 
 import scala.collection.*
 
-import yuck.core.*
+import yuck.core.{given, *}
 import yuck.test.util.YuckAssert
 import yuck.util.arm.Sigint
 import yuck.util.logging.LazyLogger
@@ -12,13 +12,13 @@ import yuck.util.logging.LazyLogger
  *
  */
 final class NeighbourhoodTestHelper
-    [V <: AnyValue]
+    [V <: Value[V]]
     (logger: LazyLogger,
      xs: IndexedSeq[Variable[V]],
      moveSizeDistribution: Distribution,
      maybeHotSpotDistribution: Option[Distribution], // goes together with xs
      maybeFairVariableChoiceRate: Option[Probability])
-    (implicit valueTraits: ValueTraits[V])
+    (using valueTraits: ValueTraits[V])
     extends YuckAssert
 {
 

@@ -4,7 +4,7 @@ import org.junit.*
 
 import scala.collection.*
 
-import yuck.core.*
+import yuck.core.{given, *}
 import yuck.test.util.UnitTest
 
 /**
@@ -36,6 +36,7 @@ final class SpaceTest extends UnitTest {
         assertEx(space.post(f))
         assertEq(space.numberOfConstraints, 3)
         assertEq(space.numberOfConstraints(_.isInstanceOf[DummyConstraint]), 3)
+        assertEq(space.numberOfConstraints[DummyConstraint], 3)
         assertEq(space.numberOfConstraints(_ => false), 0)
         space.checkConsistency()
 
@@ -175,9 +176,38 @@ final class SpaceTest extends UnitTest {
     }
 
     @Test
+    def testRetraction(): Unit = {
+        val space = new Space(logger, sigint)
+        val x = space.createVariable("x", CompleteIntegerRange)
+        val y = space.createVariable("y", CompleteIntegerRange)
+        val z = space.createVariable("z", CompleteBooleanDomain)
+        val u = space.createVariable("u", CompleteBooleanDomain)
+        val v = space.createVariable("v", CompleteBooleanDomain)
+        val c = new DummyConstraint(space.nextConstraintId(), List(x, y), List(u))
+        val d = new DummyConstraint(space.nextConstraintId(), List(u, z), List(v))
+        space.post(c)
+        space.post(d)
+        space.registerImplicitConstraint(c)
+        space.registerObjectiveVariable(v)
+        assertEx(space.retract(c))
+        space.retract(d)
+        assertEq(space.numberOfConstraints, 1)
+        assertEq(space.numberOfRetractions, 1)
+        List(x, y, z, v).forall(! space.isObjectiveVariable(_))
+        space.retract(c)
+        assertEq(space.numberOfConstraints, 0)
+        assertEq(space.numberOfRetractions, 2)
+        assert(! space.isImplicitConstraint(c))
+        assertEq(space.numberOfImplicitConstraints, 0)
+        assert(space.searchVariables.isEmpty)
+        assert(space.implicitlyConstrainedSearchVariables.isEmpty)
+        assert(space.channelVariables.isEmpty)
+    }
+
+    @Test
     def testNetworkPruning(): Unit = {
         val space = new Space(logger, sigint)
-        val vars @ IndexedSeq(s, t, u, v, w, x, y, z) =
+        val IndexedSeq(s, t, u, v, w, x, y, z) =
             for (name <- 's' to 'z') yield space.createVariable(name.toString, CompleteIntegerRange)
         val c = new DummyConstraint(space.nextConstraintId(), List(s), List(t, y))
         val d = new DummyConstraint(space.nextConstraintId(), List(t), List(u))
@@ -185,19 +215,23 @@ final class SpaceTest extends UnitTest {
         val f = new DummyConstraint(space.nextConstraintId(), List(t), List(w))
         val g = new DummyConstraint(space.nextConstraintId(), List(w, w, w), List(x))
         val h = new DummyConstraint(space.nextConstraintId(), List(z), Nil)
+        def isUseless(constraint: Constraint) =
+            ! space.isImplicitConstraint(constraint) &&
+            constraint.outVariables.forall(x =>
+                ! space.isObjectiveVariable(x) && space.directlyAffectedConstraints(x).isEmpty)
         space
-            .registerOutputVariable(u)
             .registerObjectiveVariable(v)
             .post(c).post(d).post(e).post(f).post(g).post(h)
             .registerImplicitConstraint(h)
-            .removeUselessConstraints()
-        assertEq(space.numberOfConstraints, 4)
+            .retractUselessConstraints(isUseless)
+        assertEq(space.numberOfConstraints, 3)
         assertEq(space.numberOfConstraints(_.id == c.id), 1)
-        assertEq(space.numberOfConstraints(_.id == d.id), 1)
+        assertEq(space.numberOfConstraints(_.id == d.id), 0)
         assertEq(space.numberOfConstraints(_.id == e.id), 1)
         assertEq(space.numberOfConstraints(_.id == f.id), 0)
         assertEq(space.numberOfConstraints(_.id == g.id), 0)
         assertEq(space.numberOfConstraints(_.id == h.id), 1)
+        assertEq(space.numberOfRetractions, 3)
     }
 
     // A spy constraint maintains the sum of its input variables and,
@@ -292,6 +326,8 @@ final class SpaceTest extends UnitTest {
                 xs += sum
                 val spy = new Spy(space.nextConstraintId(), qs, sum)
                 space.post(spy)
+                xs.foreach(space.registerObjectiveVariable)
+                space.registerObjectiveVariable(sum)
                 spies += spy
                 j += 1
             }
@@ -399,7 +435,7 @@ final class SpaceTest extends UnitTest {
             // generate and perform m moves
             val neighbourhood =
                 new RandomReassignmentGenerator(
-                    space, space.searchVariables.toIndexedSeq, randomGenerator, moveSizeDistribution, None, None)
+                    space, space.searchVariables.toVector, randomGenerator, moveSizeDistribution, None, None)
             for (i <- 1 to m) {
                 // generate move and consult space
                 val move = neighbourhood.nextMove

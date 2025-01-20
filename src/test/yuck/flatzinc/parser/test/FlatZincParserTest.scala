@@ -41,9 +41,11 @@ final class FlatZincParserTest extends UnitTest {
         expectSuccess(expr, "-1", IntConst(-1))
         expectFailure(expr, "++1")
         expectFailure(expr, "+-1")
-        // fails on Java 6
         expectSuccess(expr, "+1", IntConst(1))
-        expectFailure(expr, "3486784401")
+        expectFailure(expr, "-9223372036854775809")
+        expectSuccess(expr, Long.MinValue.toString(), IntConst(Long.MinValue))
+        expectSuccess(expr, Long.MaxValue.toString(), IntConst(Long.MaxValue))
+        expectFailure(expr, "9223372036854775808")
     }
 
     @Test
@@ -91,12 +93,12 @@ final class FlatZincParserTest extends UnitTest {
 
     @Test
     def testArray(): Unit = {
-        expectSuccess(expr, "[]", ArrayConst(Nil))
-        expectSuccess(expr, "[1]", ArrayConst(List(IntConst(1))))
-        expectSuccess(expr, "[2, 1]", ArrayConst(List(IntConst(2), IntConst(1))))
-        expectSuccess(expr, "[a[2], 1, a[1]]", ArrayConst(List(ArrayAccess("a", IntConst(2)), IntConst(1), ArrayAccess("a", IntConst(1)))))
-        expectSuccess(expr, "[true, false]", ArrayConst(List(BoolConst(true), BoolConst(false))))
-        expectSuccess(expr, "[[]]", ArrayConst(List(ArrayConst(List()))))
+        expectSuccess(expr, "[]", ArrayConst(Vector()))
+        expectSuccess(expr, "[1]", ArrayConst(Vector(IntConst(1))))
+        expectSuccess(expr, "[2, 1]", ArrayConst(Vector(IntConst(2), IntConst(1))))
+        expectSuccess(expr, "[a[2], 1, a[1]]", ArrayConst(Vector(ArrayAccess("a", IntConst(2)), IntConst(1), ArrayAccess("a", IntConst(1)))))
+        expectSuccess(expr, "[true, false]", ArrayConst(Vector(BoolConst(true), BoolConst(false))))
+        expectSuccess(expr, "[[]]", ArrayConst(Vector(ArrayConst(Vector()))))
         expectFailure(expr, "a[]")
         expectSuccess(expr, "a[1]", ArrayAccess("a", IntConst(1)))
         expectSuccess(expr, "a[b[1]]", ArrayAccess("a", ArrayAccess("b", IntConst(1))))
@@ -131,7 +133,7 @@ final class FlatZincParserTest extends UnitTest {
         expectSuccess(
             pred_decl,
             "predicate all_different_int(array [int] of var int: x);",
-            PredDecl("all_different_int", List(PredParam("x", ArrayType(None, IntType(None))))))
+            PredDecl("all_different_int", List(PredParam("x", ArrayType(None, IntType(None)), Nil))))
     }
 
     @Test
@@ -142,7 +144,7 @@ final class FlatZincParserTest extends UnitTest {
             ParamDecl(
                 "distance",
                 ArrayType(Some(IntRange(1, 4)), IntType(None)),
-                ArrayConst(List(IntConst(5), IntConst(5), IntConst(5), IntConst(5)))))
+                ArrayConst(Vector(IntConst(5), IntConst(5), IntConst(5), IntConst(5)))))
     }
 
     @Test

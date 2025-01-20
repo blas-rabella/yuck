@@ -7,7 +7,7 @@ import scala.collection.*
  *
  * @author Michael Marte
  */
-implicit object IntegerValueTraits extends IntegralValueTraits[IntegerValue] {
+object IntegerValueTraits extends IntegralValueTraits[IntegerValue] {
     override val valueType = classOf[IntegerValue]
     override def normalizedValue(a: IntegerValue) = a
     override val zero = Zero
@@ -16,7 +16,7 @@ implicit object IntegerValueTraits extends IntegralValueTraits[IntegerValue] {
     override val maxValue = IntegerValue(Long.MaxValue)
     override val valueOrdering = IntegerValueOperations
     override val numericalOperations = IntegerValueOperations
-    override val orderingCostModel = IntegerValueOrderingCostModel
+    override val costModel = IntegerValueOrderingCostModel
     override def createDomain(values: Set[IntegerValue]): IntegerDomain = IntegerDomain(values)
     override def createDomain(lb: IntegerValue, ub: IntegerValue) = IntegerRange(lb, ub)
     override val emptyDomain: IntegerDomain = EmptyIntegerRange

@@ -22,7 +22,7 @@ final class Table
      private var rows: immutable.IndexedSeq[immutable.IndexedSeq[V]],
      costs: BooleanVariable,
      forceImplicitSolving: Boolean = false)
-    (implicit valueTraits: OrderedValueTraits[V])
+    (using valueTraits: OrderedValueTraits[V])
     extends Constraint(id)
 {
 
@@ -58,7 +58,7 @@ final class Table
                     buf += i
                     map
             }
-            .map{case (x, buf) => (x, buf.toIndexedSeq)}
+            .map{case (x, buf) => (x, buf.toVector)}
             .toMap
         } else {
             null
@@ -66,10 +66,10 @@ final class Table
 
     private val effect = costs.reuseableEffect
 
-    private val orderingCostModel = valueTraits.orderingCostModel
+    private val costModel = valueTraits.costModel
 
     inline private def computeDistance(a: V, b: V): Long =
-        orderingCostModel.eqViolation(a, b)
+        costModel.eqViolation(a, b)
 
     override def propagate() = {
         if (costs.domain == TrueDomain) {

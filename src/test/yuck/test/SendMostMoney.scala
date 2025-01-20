@@ -4,7 +4,7 @@ import org.junit.*
 
 import yuck.annealing.*
 import yuck.constraints.*
-import yuck.core.*
+import yuck.core.{given, *}
 import yuck.test.util.{DefaultNumberOfThreads, IntegrationTest}
 
 /**
@@ -76,6 +76,7 @@ final class SendMostMoney extends IntegrationTest {
             space.post(new Eq(space.nextConstraintId(), null, lhs, rhs, delta))
             val costs = new BooleanVariable(space.nextVariableId(), "costs", CompleteBooleanDomain)
             space.post(new Conjunction(space.nextConstraintId(), null, List(numberOfMissingValues, delta), costs))
+            space.registerObjectiveVariable(costs)
             assertEq(space.searchVariables, vars)
 
             // propagate constraints
@@ -108,7 +109,7 @@ final class SendMostMoney extends IntegrationTest {
                     solverName,
                     space,
                     createAnnealingSchedule(space.searchVariables.size, randomGenerator.nextGen()),
-                    new SimpleRandomReassignmentGenerator(space, space.searchVariables.toIndexedSeq, randomGenerator.nextGen()),
+                    new SimpleRandomReassignmentGenerator(space, space.searchVariables.toVector, randomGenerator.nextGen()),
                     randomGenerator.nextGen(),
                     new HierarchicalObjective(
                         List(new SatisfactionObjective(costs),

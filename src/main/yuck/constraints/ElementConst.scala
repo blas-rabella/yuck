@@ -2,7 +2,7 @@ package yuck.constraints
 
 import scala.collection.*
 
-import yuck.core.*
+import yuck.core.{given, *}
 
 /**
  * Used to implement the family of array_*_element constraints as required by FlatZinc.
@@ -15,12 +15,14 @@ import yuck.core.*
  *
  */
 final class ElementConst
-    [V <: AnyValue]
+    [V <: Value[V]]
     (id: Id[Constraint], override val maybeGoal: Option[Goal],
      as: immutable.IndexedSeq[V], i: IntegerVariable, y: Variable[V], offset: Int)
-    (implicit valueTraits: ValueTraits[V])
+    (using valueTraits: ValueTraits[V])
     extends Constraint(id)
 {
+
+    require(! as.isEmpty)
 
     override def toString = "%s = element(%s, [%s], %d)".format(y, i, as.mkString(", "), offset)
 

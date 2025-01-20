@@ -2,7 +2,7 @@ package yuck.constraints.test.util
 
 import org.junit.Assert
 
-import yuck.core.*
+import yuck.core.{given, *}
 import yuck.test.util.YuckAssert
 import yuck.util.logging.LazyLogger
 
@@ -25,6 +25,8 @@ trait ConstraintTestTooling extends YuckAssert {
     protected final case class TestScenario(space: Space, steps: TestStep*)
 
     protected def runScenario(scenario: TestScenario): Unit = {
+        scenario.space.searchVariables.foreach(scenario.space.registerObjectiveVariable)
+        scenario.space.channelVariables.foreach(scenario.space.registerObjectiveVariable)
         for (step <- scenario.steps) {
             step.run(scenario.space)
         }
@@ -39,7 +41,7 @@ trait ConstraintTestTooling extends YuckAssert {
     }
 
     protected final class DomainReduction
-        [V <: AnyValue]
+        [V <: Value[V]]
         (override val x: Variable[V], override val dx: Domain[V])
         extends AnyDomainReduction
     {
@@ -209,9 +211,9 @@ trait ConstraintTestTooling extends YuckAssert {
             ConsultAndCommit(comment, effects.take(effects.size - 1), List(effects.last))
     }
 
-    extension [V <: AnyValue](x: Variable[V]) {
+    extension [V <: Value[V]](x: Variable[V]) {
         def <<(dx: Domain[V]): DomainReduction[V] = DomainReduction(x, dx)
-        def <<(values: Iterable[V])(implicit valueTraits: ValueTraits[V]): DomainReduction[V] =
+        def <<(values: Iterable[V])(using valueTraits: ValueTraits[V]): DomainReduction[V] =
             DomainReduction(x, valueTraits.createDomain(values.toSet))
         def <<(a: V): MoveEffect[V] = ImmutableMoveEffect(x, a)
     }

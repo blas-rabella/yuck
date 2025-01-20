@@ -6,7 +6,7 @@ import scala.jdk.CollectionConverters.*
 
 import yuck.annealing.DefaultMoveSizeDistribution
 import yuck.constraints.{Circuit, CircuitNeighbourhood, CircuitTracker}
-import yuck.core.*
+import yuck.core.{given, *}
 import yuck.test.util.UnitTest
 
 /**
@@ -26,7 +26,9 @@ final class CircuitNeighbourhoodTest(offset: Int) extends UnitTest {
     private val succ =
         for (i <- 1 to numberOfNodes) yield
             new IntegerVariable(space.nextVariableId(), "x%d".format(i), baseDomain.randomSubdomain(randomGenerator))
+    succ.foreach(space.registerObjectiveVariable)
     private val costs = new BooleanVariable(space.nextVariableId(), "costs", CompleteBooleanDomain)
+    space.registerObjectiveVariable(costs)
 
     @Test
     def testMoveGeneration(): Unit = {

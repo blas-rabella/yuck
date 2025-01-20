@@ -2,7 +2,7 @@ package yuck.core.test
 
 import org.junit.*
 
-import yuck.core.*
+import yuck.core.{given, *}
 import yuck.test.util.UnitTest
 
 /**
@@ -72,7 +72,7 @@ final class IntegerSetValueTraitsTest extends UnitTest {
     def testConfiguration(): Unit = {
         assertEq(valueType, classOf[IntegerSetValue])
         assertEq(valueOrdering, IntegerSetValueOrdering)
-        assertEq(orderingCostModel, IntegerSetValueOrderingCostModel)
+        assertEq(costModel, IntegerSetValueOrderingCostModel)
         assertEq(domainOrdering, IntegerSetDomainOrdering)
         assertEq(domainPruner, IntegerSetDomainPruner)
     }

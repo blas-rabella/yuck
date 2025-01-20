@@ -7,7 +7,7 @@ import org.junit.experimental.categories.Categories.*
 import yuck.flatzinc.test.util.*
 
 /**
- * A collection of problems from the MiniZinc challenges 2012 - 2021
+ * A collection of problems from the MiniZinc challenges 2012 - 2023
  *
  * Goals of this test suite:
  * <ul>
@@ -25,10 +25,10 @@ import yuck.flatzinc.test.util.*
  * @author Michael Marte
  */
 @FixMethodOrder(runners.MethodSorters.NAME_ASCENDING)
-final class MiniZincChallenges extends MiniZincBasedTest {
+final class MiniZincChallenges extends ZincBasedTest {
 
     private val task =
-        MiniZincTestTask(
+        ZincTestTask(
             directoryLayout = StandardMiniZincBenchmarksLayout,
             suitePath = "resources/mzn/tests/minizinc-benchmarks",
             suiteName = "minizinc-challenges",
@@ -59,6 +59,12 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     }
 
     @Test
+    @Category(Array(classOf[MinimizationProblem], classOf[HasAlldifferentExceptConstraint], classOf[HasCountConstraint]))
+    def arithmetic_target_6872_with_1_2_3_3_4_4_5_6_7_9_10(): Unit = {
+        solve(task.copy(problemName = "arithmetic-target", modelName = "model", instanceName = "6872_with_1_2_3_3_4_4_5_6_7_9_10", maybeOptimum = Some(7)))
+    }
+
+    @Test
     @Category(Array(classOf[MinimizationProblem]))
     def atsp_12_6_8_3(): Unit = {
         solve(task.copy(problemName = "atsp", instanceName = "instance10_0p25", maybeOptimum = Some(3711320)))
@@ -69,6 +75,13 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     def black_hole_20(): Unit = {
         solve(task.copy(problemName = "black-hole", instanceName = "20"))
     }
+
+    @Test
+    @Category(Array(classOf[MinimizationProblem], classOf[HasGlobalCardinalityConstraint], classOf[HasIncreasingConstraint]))
+    def blocks_world_16_4_5(): Unit = {
+        solve(task.copy(problemName = "blocks-world", modelName = "blocks", instanceName = "16-4-5", maybeOptimum = Some(25)))
+    }
+
 
     @Test
     @Category(Array(classOf[MinimizationProblem]))
@@ -101,13 +114,19 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     }
 
     @Test
+    @Category(Array(classOf[MaximizationProblem]))
+    def chessboard_4(): Unit = {
+        solve(task.copy(problemName = "chessboard", instanceName = "chessboard4", maybeOptimum = Some(25)))
+    }
+
+    @Test
     @Category(Array(classOf[MinimizationProblem]))
     def city_position_5_06(): Unit = {
         solve(task.copy(problemName = "city-position", instanceName = "city-5-06", maybeOptimum = Some(3493)))
     }
 
     @Test
-    @Category(Array(classOf[MinimizationProblem], classOf[HasAlldifferentConstraint], classOf[HasCumulativeConstraint], classOf[HasDecreasingConstraint], classOf[HasDiffnConstraint], classOf[HasMaximumConstraint], classOf[HasMinimumConstraint], classOf[HasTableConstraint]))
+    @Category(Array(classOf[MinimizationProblem], classOf[HasAlldifferentConstraint], classOf[HasCumulativeConstraint], classOf[HasDiffnConstraint], classOf[HasMaximumConstraint], classOf[HasMinimumConstraint], classOf[HasTableConstraint]))
     def code_generator_mips_gcc_cfgbuild_control_flow_insn_p(): Unit = {
         solve(task.copy(problemName = "code-generator", modelName = "unison", instanceName = "mips_gcc.cfgbuild.control_flow_insn_p", maybeMaximumNumberOfThreads = Some(1), maybeOptimum = Some(274663947)))
     }
@@ -139,7 +158,8 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     @Test
     @Category(Array(classOf[MinimizationProblem]))
     def connect_0018(): Unit = {
-        solve(task.copy(directoryLayout = NonStandardMiniZincBenchmarksLayout, problemName = "connect", instanceName = "connect__0018", maybeOptimum = Some(52490)))
+        // The solution cannot be verified, see https://github.com/minizinc/libminizinc/issues/709.
+        solve(task.copy(directoryLayout = NonStandardMiniZincBenchmarksLayout, problemName = "connect", instanceName = "connect__0018", maybeOptimum = Some(52490), verificationFrequency = NoVerification))
     }
 
     @Test
@@ -185,9 +205,15 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     }
 
     @Test
-    @Category(Array(classOf[MinimizationProblem], classOf[HasAlldifferentConstraint], classOf[HasInverseConstraint], classOf[HasMemberConstraint], classOf[HasRegularConstraint]))
+    @Category(Array(classOf[MinimizationProblem], classOf[HasAlldifferentConstraint], classOf[HasCumulativeConstraint], classOf[HasInverseConstraint], classOf[HasMemberConstraint], classOf[HasRegularConstraint]))
     def elitserien_handball1(): Unit = {
         solve(task.copy(problemName = "elitserien", modelName = "handball", instanceName = "handball1", maybeOptimum = Some(2)))
+    }
+
+    @Test
+    @Category(Array(classOf[MinimizationProblem], classOf[HasGlobalCardinalityConstraint]))
+    def evm_super_compilation_isolated_block_6_0_input(): Unit = {
+        solve(task.copy(problemName = "evm-super-compilation", modelName = "evmopt-generic", instanceName = "isolated_block_6_0_input", maybeOptimum = Some(13)))
     }
 
     @Test
@@ -198,8 +224,8 @@ final class MiniZincChallenges extends MiniZincBasedTest {
 
     @Test
     @Category(Array(classOf[SatisfiabilityProblem]))
-    def fillomino_5x5_1(): Unit = {
-        solve(task.copy(problemName = "fillomino", instanceName = "5x5_1"))
+    def fillomino_07(): Unit = {
+        solve(task.copy(problemName = "fillomino", instanceName = "07"))
     }
 
     @Test
@@ -233,6 +259,12 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     }
 
     @Test
+    @Category(Array(classOf[MinimizationProblem], classOf[HasAlldifferentExceptConstraint], classOf[HasIncreasingConstraint]))
+    def gametes_nl7_m10_134(): Unit = {
+        solve(task.copy(problemName = "gametes", instanceName = "gamete_nl7_m10_134", maybeOptimum = Some(3)))
+    }
+
+    @Test
     @Category(Array(classOf[MinimizationProblem], classOf[HasBinPackingConstraint], classOf[HasGlobalCardinalityConstraint]))
     def gbac_UD2(): Unit = {
         solve(task.copy(problemName = "gbac", instanceName = "UD2-gbac", maybeOptimum = Some(146)))
@@ -243,6 +275,12 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     @Category(Array(classOf[MinimizationProblem], classOf[HasNValueConstraint], classOf[HasAtMostConstraint]))
     def gfd_schedule_n30f3d30m7k4(): Unit = {
         solve(task.copy(problemName = "gfd-schedule", instanceName = "n30f3d30m7k4", maybeOptimum = Some(1)))
+    }
+
+    @Test
+    @Category(Array(classOf[MaximizationProblem], classOf[HasGlobalCardinalityConstraint], classOf[HasRegularConstraint]))
+    def generalized_peacable_queens_n25_q4(): Unit = {
+        solve(task.copy(problemName = "generalized-peacable-queens", modelName = "peaceable_queens", instanceName = "n25_q4"))
     }
 
     @Test
@@ -336,7 +374,7 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     }
 
     @Test
-    @Category(Array(classOf[MinimizationProblem]))
+    @Category(Array(classOf[MinimizationProblem], classOf[HasAlldifferentConstraint]))
     def ma_path_finding_ins_g16_p10_a10(): Unit = {
         solve(task.copy(problemName = "ma-path-finding", modelName = "mapf", instanceName = "ins_g16_p10_a10", maybeOptimum = Some(112), maybeMaximumNumberOfThreads = Some(1)))
     }
@@ -390,9 +428,15 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     }
 
     @Test
-    @Category(Array(classOf[MinimizationProblem]))
+    @Category(Array(classOf[MinimizationProblem], classOf[HasCumulativeConstraint]))
     def mspsp_hard_08(): Unit = {
         solve(task.copy(problemName = "mspsp", instanceName = "hard_08", maybeOptimum = Some(31)))
+    }
+
+    @Test
+    @Category(Array(classOf[MinimizationProblem], classOf[HasAlldifferentConstraint]))
+    def multi_agent_graph_coverage_rnd_n10_p1500_c15_s1(): Unit = {
+        solve(task.copy(problemName = "multi-agent-graph-coverage", modelName = "graph-scan-revised", instanceName = "rnd_n10_p1500_c15_s1", maybeOptimum = Some(147)))
     }
 
     @Test
@@ -507,6 +551,13 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     @Category(Array(classOf[MaximizationProblem], classOf[HasRegularConstraint]))
     def peaceable_queens_40(): Unit = {
         solve(task.copy(problemName = "peaceable_queens", instanceName = "40", maybeHighScore = Some(222)))
+    }
+
+    @Test
+    @Category(Array(classOf[MaximizationProblem], classOf[HasAlldifferentConstraint]))
+    def pennies_opt_n5(): Unit = {
+        // The solution cannot be verified because the model uses opt variables.
+        solve(task.copy(problemName = "pennies-opt", modelName = "pennies", instanceName = "n5", maybeOptimum = Some(5), verificationFrequency = NoVerification))
     }
 
     @Test
@@ -626,6 +677,18 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     }
 
     @Test
+    @Category(Array(classOf[MaximizationProblem]))
+    def roster_shifts_bool_s50_e50_c3(): Unit = {
+        solve(task.copy(problemName = "roster-shifts-bool", modelName = "bool-model", instanceName = "s50_e50_c3", maybeOptimum = Some(5312)))
+    }
+
+    @Test
+    @Category(Array(classOf[MaximizationProblem]))
+    def roster_sickness_large_4(): Unit = {
+        solve(task.copy(problemName = "roster-sickness", modelName = "bool-model-sickness", instanceName = "large-4", maybeOptimum = Some(217464)))
+    }
+
+    @Test
     @Category(Array(classOf[SatisfiabilityProblem], classOf[HasGlobalCardinalityConstraint], classOf[HasRegularConstraint]))
     def rotating_workforce_Example103(): Unit = {
         solve(task.copy(problemName = "rotating-workforce", instanceName = "Example103"))
@@ -635,6 +698,12 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     @Category(Array(classOf[SatisfiabilityProblem], classOf[HasGlobalCardinalityConstraint], classOf[HasRegularConstraint]))
     def rotating_workforce_Example789(): Unit = {
         solve(task.copy(problemName = "rotating-workforce", instanceName = "Example789"))
+    }
+
+    @Test
+    @Category(Array(classOf[SatisfiabilityProblem], classOf[HasGlobalCardinalityConstraint], classOf[HasRegularConstraint], classOf[HasSlidingSumConstraint]))
+    def rotating_workforce_scheduling_rws_instance_e_100_s_2(): Unit = {
+        solve(task.copy(problemName = "rotating-workforce-scheduling", instanceName = "rws-instance-e-100-s-2"))
     }
 
     @Test
@@ -656,7 +725,7 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     }
 
     @Test
-    @Category(Array(classOf[MinimizationProblem], classOf[HasAlldifferentExceptConstraint]))
+    @Category(Array(classOf[MinimizationProblem], classOf[HasAlldifferentConstraint], classOf[HasAlldifferentExceptConstraint]))
     def seat_moving_10_20_05(): Unit = {
         solve(task.copy(problemName = "seat-moving", instanceName = "sm-10-20-05", maybeOptimum = Some(90)))
     }
@@ -689,6 +758,12 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     @Category(Array(classOf[SatisfiabilityProblem]))
     def solbat_12_12_5_1(): Unit = {
         solve(task.copy(problemName = "solbat", modelName = "sb", instanceName = "sb_12_12_5_1"))
+    }
+
+    @Test
+    @Category(Array(classOf[MinimizationProblem]))
+    def speck_optimisation_easy_1(): Unit = {
+        solve(task.copy(problemName = "speck-optimisation", modelName = "SPECK-Optimisation", instanceName = "easy_1", maybeOptimum = Some(1)))
     }
 
     @Test
@@ -746,6 +821,30 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     }
 
     @Test
+    @Category(Array(classOf[MinimizationProblem], classOf[HasAlldifferentConstraint], classOf[HasDiffnConstraint], classOf[HasDisjunctiveConstraint]))
+    def stripboard_common_emitter_simple (): Unit = {
+        solve(task.copy(problemName = "stripboard", instanceName = "common-emitter-simple", maybeOptimum = Some(40)))
+    }
+
+    @Test
+    @Category(Array(classOf[SatisfiabilityProblem], classOf[HasAlldifferentConstraint]))
+    def sudoku_fixed_p48(): Unit = {
+        solve(task.copy(problemName = "sudoku_fixed", instanceName = "sudoku_p48"))
+    }
+
+    @Test
+    @Category(Array(classOf[MinimizationProblem], classOf[HasAlldifferentConstraint], classOf[HasDiffnConstraint], classOf[HasDisjunctiveConstraint]))
+    def sudoku_opt_p20(): Unit = {
+        solve(task.copy(problemName = "sudoku_opt", instanceName = "sudoku_p20", maybeOptimum = Some(-3)))
+    }
+
+    @Test
+    @Category(Array(classOf[MinimizationProblem]))
+    def table_layout_p1000_m3_r100_c10(): Unit = {
+        solve(task.copy(problemName = "table-layout", modelName = "TableLayout", instanceName = "p1000_m3_r100_c10", maybeOptimum = Some(8137)))
+    }
+
+    @Test
     @Category(Array(classOf[MinimizationProblem]))
     def tc_graph_color_k10_34(): Unit = {
         solve(task.copy(problemName = "tc-graph-color", modelName = "tcgc2", instanceName = "k10_34", maybeOptimum = Some(433)))
@@ -772,7 +871,7 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     @Test
     @Category(Array(classOf[MaximizationProblem]))
     def tower_challenge_070_070_15_070_04(): Unit = {
-        solve(task.copy(problemName = "tower-challenge", modelName = "tower", instanceName = "tower_070_070_15_070-04", maybeOptimum = Some(61)))
+        solve(task.copy(problemName = "tower", instanceName = "tower_070_070_15_070-04", maybeOptimum = Some(61)))
     }
 
     @Test
@@ -794,10 +893,35 @@ final class MiniZincChallenges extends MiniZincBasedTest {
     }
 
     @Test
+    @Category(Array(classOf[MaximizationProblem], classOf[HasAlldifferentConstraint]))
+    def travelling_thief_n10_k15_c5000_l10000_u11000_r49(): Unit = {
+        solve(task.copy(problemName = "travelling-thief", modelName = "ttp", instanceName = "data/n10_k15_c5000_l10000_u11000_r49", maybeOptimum = Some(5134100)))
+    }
+
+    @Test
     @Category(Array(classOf[MaximizationProblem]))
     def triangular_n17(): Unit = {
         solve(task.copy(problemName = "triangular", instanceName = "n17", maybeHighScore = Some(40)))
     }
+
+    @Test
+    @Category(Array(classOf[MinimizationProblem]))
+    def unit_commitment_L7_T12G5L5(): Unit = {
+        solve(task.copy(problemName = "unit-commitment", modelName = "Unit-Commitment", instanceName = "L7-T12G5L5", maybeOptimum = Some(130950)))
+    }
+
+    @Test
+    @Category(Array(classOf[MaximizationProblem], classOf[HasGlobalCardinalityConstraint]))
+    def vaccine_v946(): Unit = {
+        solve(task.copy(problemName = "vaccine", instanceName = "v946", maybeHighScore = Some(85)))
+    }
+
+    @Test
+    @Category(Array(classOf[MaximizationProblem]))
+    def valve_network_horizon6(): Unit = {
+        solve(task.copy(problemName = "valve-network", instanceName = "horizon6", maybeOptimum = Some(34)))
+    }
+
 
     @Test
     @Category(Array(classOf[MinimizationProblem], classOf[HasCircuitConstraint]))
@@ -823,10 +947,25 @@ final class MiniZincChallenges extends MiniZincBasedTest {
         solve(task.copy(problemName = "wmsmc-int", modelName = "multisetcover", instanceName = "batch_0_case_115_instance_0_small_subset_elements_3_sumreqs_1295_candidates_41", maybeOptimum = Some(509704)))
     }
 
+    // increasing and value_precede constraints might be redundant.
     @Test
-    @Category(Array(classOf[MinimizationProblem], classOf[HasCircuitConstraint], classOf[HasTableConstraint], classOf[HasValuePrecedeConstraint]))
+    @Ignore("Does not compile since MiniZinc 2.7.3")
+    @Category(Array(classOf[MinimizationProblem], classOf[HasAlldifferentConstraint], classOf[HasCircuitConstraint], classOf[HasIncreasingConstraint], classOf[HasTableConstraint], classOf[HasValuePrecedeConstraint]))
     def yumi_dynamic_p_4_GG_GG_yumi_grid_setup_3_4_zones() : Unit = {
         solve(task.copy(problemName = "yumi-dynamic", instanceName = "p_4_GG_GG_yumi_grid_setup_3_4_zones", maybeOptimum = Some(462)))
+    }
+
+    // increasing and value_precede constraints might be redundant.
+    @Test
+    @Category(Array(classOf[MinimizationProblem], classOf[HasAlldifferentConstraint], classOf[HasCircuitConstraint], classOf[HasIncreasingConstraint], classOf[HasTableConstraint], classOf[HasValuePrecedeConstraint]))
+    def yumi_static_p_4_GG_GG_yumqi_grid_setup_3_3(): Unit = {
+        solve(task.copy(problemName = "yumi-static", instanceName = "p_4_GG_GG_yumi_grid_setup_3_3", maybeOptimum = Some(626)))
+    }
+
+    @Test
+    @Category(Array(classOf[MinimizationProblem]))
+    def wordpress_7_Offers500(): Unit = {
+        solve(task.copy(problemName = "wordpress", instanceName = "Wordpress7_Offers500", maybeOptimum = Some(2022)))
     }
 
     @Test

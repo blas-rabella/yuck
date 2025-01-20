@@ -2,7 +2,7 @@ package yuck.core.test
 
 import org.junit.*
 
-import yuck.core.*
+import yuck.core.{given, *}
 import yuck.test.util.{EqualityTestHelper, OrderingTestHelper, UnitTest}
 
 /**
@@ -81,10 +81,13 @@ final class IntegerSetDomainTest extends UnitTest {
         assertEq(EmptyIntegerSetDomain.intersect(CompleteIntegerSetDomain), EmptyIntegerSetDomain)
         assertEq(CompleteIntegerSetDomain.intersect(EmptyIntegerSetDomain), EmptyIntegerSetDomain)
         assertEq(new SingletonIntegerSetDomain(EmptyIntegerRange).asInstanceOf[IntegerSetDomain].intersect(new SingletonIntegerSetDomain(EmptyIntegerRange)), new SingletonIntegerSetDomain(EmptyIntegerRange))
+        assertEq(new SingletonIntegerSetDomain(EmptyIntegerRange).asInstanceOf[IntegerSetDomain].intersect(new SingletonIntegerSetDomain(ZeroToOneIntegerRange)), EmptyIntegerSetDomain)
         assertEq(new SingletonIntegerSetDomain(EmptyIntegerRange).intersect(CompleteIntegerSetDomain), new SingletonIntegerSetDomain(EmptyIntegerRange))
+        assertEq(new SingletonIntegerSetDomain(NegativeIntegerRange).intersect(new IntegerPowersetDomain(PositiveIntegerRange)), EmptyIntegerSetDomain)
         assertEq(CompleteIntegerSetDomain.asInstanceOf[IntegerSetDomain].intersect(new IntegerPowersetDomain(EmptyIntegerRange)), new IntegerPowersetDomain(EmptyIntegerRange))
         assertEq(new IntegerPowersetDomain(NonPositiveIntegerRange).asInstanceOf[IntegerSetDomain].intersect(new IntegerPowersetDomain(NonNegativeIntegerRange)), new IntegerPowersetDomain(ZeroToZeroIntegerRange))
         assertEq(CompleteIntegerSetDomain.intersect(new SingletonIntegerSetDomain(EmptyIntegerRange)), new SingletonIntegerSetDomain(EmptyIntegerRange))
+        assertEq(new IntegerPowersetDomain(NegativeIntegerRange).intersect(new SingletonIntegerSetDomain(PositiveIntegerRange)), EmptyIntegerSetDomain)
         assertEq(CompleteIntegerSetDomain.asInstanceOf[IntegerSetDomain].intersect(CompleteIntegerSetDomain), CompleteIntegerSetDomain)
     }
 
@@ -122,6 +125,12 @@ final class IntegerSetDomainTest extends UnitTest {
         for (a <- testData) {
             assertEx(a.randomSubdomain(randomGenerator), classOf[NotImplementedError])
         }
+    }
+
+    @Test
+    def testConfiguration(): Unit = {
+        import IntegerSetDomain.{given}
+        assertEq(ordering, IntegerSetDomainOrdering)
     }
 
 }

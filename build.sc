@@ -11,12 +11,9 @@ trait YuckBuild extends ScalaModule with BuildInfo {
     val buildType: String
 
     def git(args: String*) = os.proc("git" :: args.toList).call().out.lines.head
-    def retrieveGitCommitHash() = T.command {git("rev-parse", "HEAD")}
-    def gitCommitHash = T {retrieveGitCommitHash()}
-    def retrieveGitCommitDate() = T.command {git("log", "-1", "--pretty=format:%cd", "--date=format:%Y%m%d")}
-    def gitCommitDate = T {retrieveGitCommitDate()}
-    def retrieveGitBranch() = T.command {git("rev-parse", "--abbrev-ref", "HEAD")}
-    def gitBranch = T {retrieveGitBranch()}
+    def gitCommitHash = T.input {git("rev-parse", "HEAD")}
+    def gitCommitDate = T {git("log", "-1", "--pretty=format:%cd", "--date=format:%Y%m%d")}
+    def gitBranch = T {git("rev-parse", "--abbrev-ref", "HEAD")}
     def shortVersion = T {gitCommitDate()}
     def longVersion = T {
         "%s-%s-%s-%s".format(gitCommitDate(), gitBranch().replaceAll("/", "-"), gitCommitHash().take(8), buildType)}
@@ -33,7 +30,7 @@ trait YuckBuild extends ScalaModule with BuildInfo {
         )
     }
 
-    override def scalaVersion = "3.1.3"
+    override def scalaVersion = "3.3.1"
     override def millSourcePath = os.pwd
     override def sources = T.sources {millSourcePath / "src" / "main"}
     override def resources = T.sources()
@@ -42,9 +39,9 @@ trait YuckBuild extends ScalaModule with BuildInfo {
 
     override def ivyDeps = Agg(
         ivy"com.conversantmedia:rtree:1.0.5",
-        ivy"com.github.scopt::scopt:4.0.1",
+        ivy"com.github.scopt::scopt:4.1.0",
         ivy"org.jgrapht:jgrapht-core:1.4.0",
-        ivy"org.scala-lang.modules::scala-parser-combinators:2.1.0"
+        ivy"org.scala-lang.modules::scala-parser-combinators:2.3.0"
     )
 
     val basicJvmConfiguration = Seq("-Djava.lang.Integer.IntegerCache.high=10000", "-XX:+UseParallelGC")
@@ -65,7 +62,7 @@ trait YuckBuild extends ScalaModule with BuildInfo {
 
         override def ivyDeps = Agg(
             ivy"junit:junit:4.13.2",
-            ivy"io.spray::spray-json:1.3.5".withDottyCompat(scalaVersion()),
+            ivy"io.spray::spray-json:1.3.6".withDottyCompat(scalaVersion()),
             ivy"org.jgrapht:jgrapht-io:1.4.0",
             ivy"org.mockito:mockito-core:3.12.4"
         )
@@ -92,13 +89,14 @@ trait YuckBuild extends ScalaModule with BuildInfo {
     def corePackage = T {
         val packageName = "yuck-".concat(version())
         val packageDir = T.dest / packageName
+        os.remove.all(packageDir)
         for (dependency <- upstreamAssemblyClasspath().map(_.path)) {
-            os.copy.into(dependency, packageDir / "lib", createFolders = true)
+            os.copy.into(dependency, packageDir / "lib", createFolders = true, copyAttributes = true)
         }
         val yuckJarName = packageName.concat(".jar")
-        os.copy(jar().path, packageDir / "lib" / yuckJarName, createFolders = true)
-        os.copy(documentation().path, packageDir / "doc", createFolders = true)
-        os.copy(miniZincBindings().path, packageDir / "mzn" / "lib", createFolders = true)
+        os.copy(jar().path, packageDir / "lib" / yuckJarName, createFolders = true, copyAttributes = true)
+        os.copy(documentation().path, packageDir / "doc", createFolders = true, copyAttributes = true)
+        os.copy(miniZincBindings().path, packageDir / "mzn" / "lib", createFolders = true, copyAttributes = true)
         val classPathComponents = (upstreamAssemblyClasspath().iterator.map(_.path.last).toSeq :+ yuckJarName)
         val unixClassPath = classPathComponents.map(jarName => "$LIB_DIR/".concat(jarName)).mkString(":")
         val basicMapping = Map("#YUCK_JAVA_OPTS#" -> basicJvmConfiguration.mkString(" "), "#MAIN_CLASS#" -> mainClass().get)
@@ -112,26 +110,28 @@ trait YuckBuild extends ScalaModule with BuildInfo {
             winStartScriptTemplate().path,
             packageDir / "bin" / "yuck.bat",
             basicMapping + ("#CLASS_PATH#" -> winClassPath))
-        packageDir
+        PathRef(packageDir)
     }
 
     def universalPackage = T {
         val packageName = "yuck-".concat(version())
         val packageDir = T.dest / packageName
-        os.copy(corePackage(), packageDir, createFolders = true)
+        os.remove.all(packageDir)
+        os.copy(corePackage().path, packageDir, createFolders = true, copyAttributes = true)
         fillTemplateIn(
             miniZincSolverConfigurationTemplate().path,
             packageDir / "mzn" / "yuck.msc",
             Map("#VERSION#" -> version(), "#EXE_PATH#" -> "../bin/yuck", "#MZN_LIB_PATH#" -> "lib"))
         val archiveName = packageName.concat(".zip")
         os.proc("zip", "-r", archiveName, packageName).call(cwd = T.dest)
-        T.dest / archiveName
+        PathRef(T.dest / archiveName)
     }
 
     def debianPackage = T {
         val packageName = "yuck-".concat(version())
         val packageDir = T.dest / packageName
-        os.copy(corePackage(), packageDir / "usr" / "share" / "yuck", createFolders = true)
+        os.remove.all(packageDir)
+        os.copy(corePackage().path, packageDir / "usr" / "share" / "yuck", createFolders = true, copyAttributes = true)
         fillTemplateIn(
             miniZincSolverConfigurationTemplate().path,
             packageDir / "usr" / "share" / "minizinc" / "solvers" / "yuck.msc",
@@ -143,7 +143,7 @@ trait YuckBuild extends ScalaModule with BuildInfo {
         os.makeDir.all(packageDir / "usr" / "bin")
         os.symlink(packageDir / "usr" / "bin" / "yuck", os.Path("/usr/share/yuck/bin/yuck"))
         os.proc("dpkg-deb", "--build", packageName).call(cwd = T.dest)
-        T.dest / (packageName.concat(".deb"))
+        PathRef(T.dest / (packageName.concat(".deb")))
     }
 
     private def fillTemplateIn(template: os.Path, target: os.Path, mapping: Map[String, String]): Unit = {

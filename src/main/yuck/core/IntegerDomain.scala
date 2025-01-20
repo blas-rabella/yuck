@@ -206,6 +206,8 @@ abstract class IntegerDomain extends NumericalDomain[IntegerValue] {
  */
 object IntegerDomain {
 
+    given ordering: Ordering[OrderedDomain[IntegerValue]] = IntegerDomainOrdering
+
     private def rangeLessThan(lhs: IntegerRange, rhs: IntegerRange) =
         ! rhs.isSubsetOf(lhs) && (lhs.isSubsetOf(rhs) || lhs.startsBefore(rhs))
 
@@ -216,7 +218,7 @@ object IntegerDomain {
 
     // The lexicographic ordering on the underlying range lists.
     private val rangeListOrdering = new Ordering[IntegerRangeList] {
-        val ordering = createLexicographicOrderingForIterable(rangeOrdering)
+        val ordering = lexicographicOrderingForIterable(using rangeOrdering)
         override def compare(lhs: IntegerRangeList, rhs: IntegerRangeList) =
             ordering.compare(lhs.ranges, rhs.ranges)
     }
@@ -239,7 +241,7 @@ object IntegerDomain {
     def apply(ranges: Iterable[IntegerRange]): IntegerDomain = {
         if (ranges.isEmpty) EmptyIntegerRange
         else if (ranges.size == 1) ranges.head
-        else new IntegerRangeList(ranges.toIndexedSeq)
+        else new IntegerRangeList(ranges.toVector)
     }
 
     /**

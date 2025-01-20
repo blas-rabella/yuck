@@ -1,6 +1,6 @@
-# Yuck
 
-[![Build Status](https://www.travis-ci.org/informarte/yuck.svg?branch=master)](https://www.travis-ci.org/informarte/yuck)
+
+# Yuck
 
 ## Yuck in a nutshell
 
@@ -29,15 +29,14 @@ When you decided for the ZIP package, proceed as follows:
 
 1. Make sure that a [Java runtime environment](https://openjdk.java.net/install) is available on your system; Yuck requires at least version 8.
 2. Unzip the package in a suitable location.
-3. To register Yuck as a backend for the MiniZinc toolchain, define the ```MZN_SOLVER_PATH``` environment variable to point to the ```mzn``` subfolder of the Yuck distribution. (For other ways of providing a solver configuration file to the MiniZinc toolchain, see the section on [Solver Configuration Files](http://www.minizinc.org/doc-2.6.4/en/fzn-spec.html#solver-configuration-files) of *The MiniZinc Handbook*.)
-4. If you want to use Yuck on Windows with a MiniZinc version prior to 2.6.0, you need to take another step to work around a bug in MiniZinc: go to the ```mzn``` subfolder of the Yuck distribution, open the file ```yuck.msc```, find the line ```"executable": "../bin/yuck"``` and replace it with ```"executable": "../bin/yuck.bat"```.
-5. If you want to use Yuck on MacOS, you have to install the `coreutils` package with the following Homebrew command: `brew install coreutils`
+3. To register Yuck as a backend for the MiniZinc toolchain, define the ```MZN_SOLVER_PATH``` environment variable to point to the ```mzn``` subfolder of the Yuck distribution. (For other ways of providing a solver configuration file to the MiniZinc toolchain, see the section on [Solver Configuration Files](http://www.minizinc.org/doc-2.8.3/en/fzn-spec.html#solver-configuration-files) of *The MiniZinc Handbook*.)
+4. If you want to use Yuck on MacOS, you have to install the `coreutils` package with the following Homebrew command: `brew install coreutils`
 
 The Docker image contains an OpenJDK Java runtime, the MiniZinc compiler and Yuck itself; it neither contains the MiniZinc IDE nor other solvers.
 
 ## Usage as MiniZinc backend
 
-To apply Yuck to MiniZinc models, you need a working [MiniZinc](https://www.minizinc.org/software.html) installation. This section assumes that you have at least version 2.6.4 installed and that Yuck has been properly registered as a MiniZinc backend (see above).
+To apply Yuck to MiniZinc models, you need a working [MiniZinc](https://www.minizinc.org/software.html) installation. This section assumes that you have at least version 2.8.3 installed and that Yuck has been properly registered as a MiniZinc backend (see above).
 
 To use Yuck from inside the MiniZinc IDE, just select it from the menu of solver configurations before running your model.
 
@@ -127,8 +126,8 @@ When used as a FlatZinc interpreter, Yuck proceeds as follows:
 
 * It eliminates variables by exploiting equality constraints.
 * It identifies and exploits functional dependencies to reduce the number of decision variables.
-* It prunes the constraint network by removing useless constraints.
 * It prunes the search space by performing a limited amount of constraint propagation.
+* It prunes the constraint network by removing useless constraints.
 * It uses an annealing schedule that interleaves adaptive cooling with geometric reheating.
 * In move generation, it concentrates on variables that are involved in constraint violations.
 * It uses restarting to increase robustness: When a solver terminates without having reached its objective, it gets replaced by a new one starting out from another random assignment.
@@ -408,7 +407,7 @@ Notice that the following table covers only those global constraints which Yuck 
 
 ## Contributing
 
-The Yuck build is based on [mill](http://www.lihaoyi.com/mill/). (There is no need to download mill when you run it with `./mill` from inside the Yuck root directory.) Morever, there is a Makefile with convenience targets most of which map to mill targets.
+The Yuck build is based on [mill](https://com-lihaoyi.github.io/mill/mill/Intro_to_Mill.html). (There is no need to download mill when you run it with `./mill` from inside the Yuck root directory.) Morever, there is a Makefile with convenience targets most of which map to mill targets.
 
 Run `make idea-project-files` to create project files for IntelliJ IDEA. Then, in IntelliJ IDEA, just import the Yuck root directory.
 
@@ -425,7 +424,7 @@ Notice that compilation requires a proper Git working copy.
 ### Testing
 
 Yuck tests are based on [JUnit 4](http://junit.org/junit4/) and
-[MiniZinc 2.6.4](http://www.minizinc.org/software.html).
+[MiniZinc 2.8.3](http://www.minizinc.org/software.html).
 
 * `make unit-tests` builds and runs all unit tests.
 * `make front-end-tests` runs all FlatZinc front-end tests.

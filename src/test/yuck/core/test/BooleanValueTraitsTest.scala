@@ -2,7 +2,7 @@ package yuck.core.test
 
 import org.junit.*
 
-import yuck.core.*
+import yuck.core.{given, *}
 import yuck.test.util.UnitTest
 
 /**
@@ -75,7 +75,7 @@ final class BooleanValueTraitsTest extends UnitTest {
     def testConfiguration(): Unit = {
         assertEq(valueType, classOf[BooleanValue])
         assertEq(valueOrdering, BooleanValueOrdering)
-        assertEq(orderingCostModel, BooleanValueOrderingCostModel)
+        assertEq(costModel, BooleanValueOrderingCostModel)
         assertEq(domainOrdering, BooleanDomainOrdering)
         assertEq(domainPruner, BooleanDomainPruner)
     }

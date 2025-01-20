@@ -2,7 +2,7 @@ package yuck.core.test
 
 import scala.collection.*
 
-import yuck.core.*
+import yuck.core.{given, *}
 import yuck.core.IntegerDomain.ensureRangeList
 import yuck.util.logging.{FineLogLevel, LazyLogger}
 
@@ -330,7 +330,7 @@ final class IntegerDomainTestHelper
                     assertEq(e.lb, if (d.hasUb) d.ub.negated else null)
                     assertEq(e.ub, if (d.hasLb) d.lb.negated else null)
                 case d: IntegerRangeList =>
-                    assertEq(e, IntegerRangeList(d.ranges.reverseIterator.map(_.mirrored).toIndexedSeq))
+                    assertEq(e, IntegerRangeList(d.ranges.reverseIterator.map(_.mirrored).toVector))
             }
         }
     }

@@ -2,7 +2,7 @@ package yuck.core.test
 
 import scala.collection.*
 
-import yuck.core.*
+import yuck.core.{given, *}
 import yuck.test.util.{EqualityTestHelper, YuckAssert}
 import yuck.util.logging.{FineLogLevel, LazyLogger}
 
@@ -10,7 +10,7 @@ import yuck.util.logging.{FineLogLevel, LazyLogger}
  * @author Michael Marte
  *
  */
-abstract class DomainTestHelper[V <: AnyValue] extends YuckAssert {
+abstract class DomainTestHelper[V <: Value[V]] extends YuckAssert {
 
     protected val logger: LazyLogger
 

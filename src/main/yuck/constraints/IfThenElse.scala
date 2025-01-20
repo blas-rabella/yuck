@@ -3,20 +3,20 @@ package yuck.constraints
 import scala.annotation.tailrec
 import scala.collection.*
 
-import yuck.core.*
+import yuck.core.{given, *}
 
 /**
  * @author Michael Marte
  *
  * Used to implement the family of fzn_if_then_else_* constraints.
  *
- * Ignores the value of the last element of c and assumes it to be true.
+ * Ignores the value of the last element of cs and assumes it to be true.
  */
 final class IfThenElse
-    [V <: AnyValue]
+    [V <: Value[V]]
     (id: Id[Constraint], override val maybeGoal: Option[Goal],
      cs: immutable.IndexedSeq[BooleanVariable], xs: immutable.IndexedSeq[Variable[V]], y: Variable[V])
-    (implicit valueTraits: ValueTraits[V])
+    (using valueTraits: ValueTraits[V])
     extends Constraint(id)
 {
 

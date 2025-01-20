@@ -5,7 +5,7 @@ import org.junit.*
 import scala.collection.*
 
 import yuck.constraints.*
-import yuck.core.*
+import yuck.core.{given, *}
 import yuck.test.util.UnitTest
 
 /**
@@ -24,6 +24,7 @@ final class BasicNumericalConstraintsTest extends UnitTest {
         val u = new IntegerVariable(space.nextVariableId(), "u", d)
         val v = new IntegerVariable(space.nextVariableId(), "v", d)
         val w = new IntegerVariable(space.nextVariableId(), "w", d)
+        List(s, t, u, v, w).foreach(space.registerObjectiveVariable)
         // u = s + t
         space
             .post(new Plus(space.nextConstraintId(), null, s, t, u))

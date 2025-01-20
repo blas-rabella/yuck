@@ -2,15 +2,14 @@ package yuck.flatzinc.compiler
 
 import scala.collection.*
 
-import yuck.core
-import yuck.core.*
+import yuck.core.{given, *}
 import yuck.core.IntegerDomain.ensureRangeList
 import yuck.flatzinc.ast.*
 
 /**
- * Builds a map from variable declarations to domains.
+ * Builds a map from parameter and variable declarations to domains.
  *
- * Assign variables to equivalence classes by considering optional assignments and equality constraints.
+ * Assigns declarations to equivalence classes by considering optional assignments and equality constraints.
  *
  * @author Michael Marte
  */
@@ -18,11 +17,6 @@ final class DomainInitializer
     (override protected val cc: CompilationContext)
     extends CompilationPhase
 {
-
-    private val declaredVars = cc.declaredVars
-    private val equalVars = cc.equalVars
-    private val domains = cc.domains
-    private val impliedConstraints = cc.impliedConstraints
 
     // puts problem variables before variables introduced by mzn2fzn
     private object ProblemVariablesFirstOrdering extends Ordering[Expr] {
@@ -45,57 +39,68 @@ final class DomainInitializer
     }
 
     private def initializeDomains(): Unit = {
+        // TODO VariableFactory uses foreach
+        for (decl <- cc.ast.paramDecls) {
+            initializeDomains(decl)
+        }
         for (decl <- cc.ast.varDecls) {
-            decl.varType match {
-                case ArrayType(Some(IntRange(1, n)), baseType) =>
-                    val domain = createDomain(baseType)
-                    for (idx <- 1 to n.toInt) {
-                        val a = ArrayAccess(decl.id, IntConst(idx))
-                        declaredVars += a
-                        domains += a -> domain
-                        val set = new mutable.TreeSet[Expr]()(ProblemVariablesFirstOrdering)
-                        set += a
-                        equalVars += a -> set
-                    }
-                case _ =>
-                    val domain = createDomain(decl.varType)
-                    val a = Term(decl.id, Nil)
-                    declaredVars += a
-                    domains += a -> domain
+            initializeDomains(decl)
+        }
+    }
+
+    private def initializeDomains(decl: PlaceholderDecl): Unit = {
+        decl.valueType match {
+            case ArrayType(Some(IntRange(1, n)), baseType) =>
+                val domain = createDomain(baseType)
+                for (idx <- 1 to n.toInt) {
+                    val a = ArrayAccess(decl.id, IntConst(idx))
+                    cc.declaredVars += a
+                    cc.domains += a -> domain
                     val set = new mutable.TreeSet[Expr]()(ProblemVariablesFirstOrdering)
                     set += a
-                    equalVars += a -> set
-            }
+                    cc.equalVars += a -> set
+                }
+            case _ =>
+                val domain = createDomain(decl.valueType)
+                val a = Term(decl.id, Nil)
+                cc.declaredVars += a
+                cc.domains += a -> domain
+                val set = new mutable.TreeSet[Expr]()(ProblemVariablesFirstOrdering)
+                set += a
+                cc.equalVars += a -> set
         }
     }
 
     private def propagateAssignments(): Unit = {
-        for (decl <- cc.ast.varDecls) {
-            decl.varType match {
-                case ArrayType(Some(IntRange(1, n)), _) =>
-                    decl.optionalValue match {
-                        case Some(Term(rhsId, Nil)) =>
-                            val lhsId = decl.id
-                            for (idx <- 1 to n.toInt) {
-                                val a = ArrayAccess(lhsId, IntConst(idx))
-                                val b = ArrayAccess(rhsId, IntConst(idx))
-                                propagateAssignment(a, b)
-                            }
-                        case Some(ArrayConst(elems)) =>
-                            assert(elems.size == n)
-                            for ((idx, b) <- (1 to n.toInt).zip(elems)) {
-                                val a = ArrayAccess(decl.id, IntConst(idx))
-                                propagateAssignment(a, b)
-                            }
-                        case _ =>
-                    }
-                case _ =>
-                    if (decl.optionalValue.isDefined) {
-                        val a = Term(decl.id, Nil)
-                        val b = decl.optionalValue.get
-                        propagateAssignment(a, b)
-                    }
-            }
+        cc.ast.paramDecls.foreach(propagateAssignments)
+        cc.ast.varDecls.foreach(propagateAssignments)
+    }
+
+    private def propagateAssignments(decl: PlaceholderDecl): Unit = {
+        decl.valueType match {
+            case ArrayType(Some(IntRange(1, n)), _) =>
+                decl.optionalValue match {
+                    case Some(Term(rhsId, Nil)) =>
+                        val lhsId = decl.id
+                        for (idx <- 1 to n.toInt) {
+                            val a = ArrayAccess(lhsId, IntConst(idx))
+                            val b = ArrayAccess(rhsId, IntConst(idx))
+                            propagateAssignment(a, b)
+                        }
+                    case Some(ArrayConst(elems)) =>
+                        assert(elems.size == n)
+                        for ((idx, b) <- (1 to n.toInt).zip(elems)) {
+                            val a = ArrayAccess(decl.id, IntConst(idx))
+                            propagateAssignment(a, b)
+                        }
+                    case _ =>
+                }
+            case _ =>
+                if (decl.optionalValue.isDefined) {
+                    val a = Term(decl.id, Nil)
+                    val b = decl.optionalValue.get
+                    propagateAssignment(a, b)
+                }
         }
     }
 
@@ -107,7 +112,7 @@ final class DomainInitializer
                 case BoolConst(_) =>
                     val da1 = boolDomain(a)
                     val da2 = da1.intersect(boolDomain(b))
-                    if (da1 != da2) equalVars(a).foreach(b => reduceDomain(b, da2))
+                    if (da1 != da2) cc.equalVars(a).foreach(b => reduceDomain(b, da2))
                 case b =>
                     val da = boolDomain(a)
                     val db = boolDomain(b)
@@ -118,7 +123,7 @@ final class DomainInitializer
                 case IntConst(_) =>
                     val da1 = intDomain(a)
                     val da2 = da1.intersect(intDomain(b))
-                    if (da1 != da2) equalVars(a).foreach(b => reduceDomain(b, da2))
+                    if (da1 != da2) cc.equalVars(a).foreach(b => reduceDomain(b, da2))
                 case b =>
                     val da = intDomain(a)
                     val db = intDomain(b)
@@ -129,7 +134,7 @@ final class DomainInitializer
                 case IntSetConst(_) =>
                     val da1 = intSetDomain(a)
                     val da2 = da1.intersect(intSetDomain(b))
-                    if (da1 != da2) equalVars(a).foreach(b => reduceDomain(b, da2))
+                    if (da1 != da2) cc.equalVars(a).foreach(b => reduceDomain(b, da2))
                 case b =>
                     val da = intSetDomain(a)
                     val db = intSetDomain(b)
@@ -142,11 +147,11 @@ final class DomainInitializer
     private def propagateConstraints(): Unit = {
         for (constraint <- cc.ast.constraints) {
             constraint match {
-                case Constraint("bool_eq", List(a, b), _) =>
+                case Constraint("bool_eq", _, _) =>
                     propagateEqualityConstraint(constraint, boolDomain)
-                case Constraint("int_eq", List(a, b), _) =>
+                case Constraint("int_eq", _, _) =>
                     propagateEqualityConstraint(constraint, intDomain)
-                case Constraint("set_eq", List(a, b), _) =>
+                case Constraint("set_eq", _, _) =>
                     propagateEqualityConstraint(constraint, intSetDomain)
                 case Constraint("array_var_bool_element" | "yuck_array_bool_element", _, _) =>
                     propagateElementConstraint(constraint, boolDomain)
@@ -154,102 +159,102 @@ final class DomainInitializer
                     propagateElementConstraint(constraint, intDomain)
                 case Constraint("array_var_set_element" | "yuck_array_set_element", _, _) =>
                     propagateElementConstraint(constraint, intSetDomain)
-                case Constraint("yuck_int_domain", List(as, b), _) =>
+                case Constraint("yuck_int_domain", Seq(as, b), _) =>
                     val d = intDomain(b)
                     for (a <- getArrayElems(as)) {
                         reduceDomain(a, intDomain(a).intersect(d))
                     }
-                    impliedConstraints += constraint
+                    cc.impliedConstraints += constraint
                 case _ =>
             }
         }
     }
 
     private def propagateEqualityConstraint
-        [V <: AnyValue]
+        [V <: Value[V]]
         (constraint: yuck.flatzinc.ast.Constraint, domain: Expr => Domain[V])
-        (implicit valueTraits: ValueTraits[V]):
+        (using valueTraits: ValueTraits[V]):
         Unit =
     {
-        val List(a, b) = constraint.params
-        if (!a.isConst) {
+        val Seq(a, b) = constraint.params: @unchecked
+        if (! a.isConst) {
             val d = domain(a).intersect(domain(b))
             if (b.isConst) {
                 propagateEquality(a, d)
             } else {
                 propagateEquality(a, b, d)
             }
-            impliedConstraints += constraint
+            cc.impliedConstraints += constraint
         }
     }
 
     private def propagateElementConstraint
-        [V <: AnyValue]
+        [V <: Value[V]]
         (constraint: yuck.flatzinc.ast.Constraint, domain: Expr => Domain[V])
-        (implicit valueTraits: ValueTraits[V]):
+        (using valueTraits: ValueTraits[V]):
         Unit =
     {
-        val List(IntConst(offset), b, as, c) =
-            if (constraint.params.size == 4) constraint.params
-            else IntConst(1) :: constraint.params
+        val Seq(IntConst(offset), b, as, c) =
+            if (constraint.params.size == 4) constraint.params: @unchecked
+            else IntConst(1) +: constraint.params: @unchecked
         if (b.isConst && ! c.isConst) {
-            val IntConst(i) = b
-            val a = getArrayElems(as).toIndexedSeq.apply(i.toInt - offset.toInt)
+            val IntConst(i) = b: @unchecked
+            val a = getArrayElems(as)(i.toInt - offset.toInt)
             if (! a.isConst) {
                 propagateEquality(a, c, domain(a).intersect(domain(c)))
-                impliedConstraints += constraint
+                cc.impliedConstraints += constraint
             }
         }
     }
 
     private def propagateEquality
-        [V <: AnyValue]
+        [V <: Value[V]]
         (a: Expr, b: Expr, d: Domain[V])
-        (implicit valueTraits: ValueTraits[V]):
+        (using valueTraits: ValueTraits[V]):
         Unit =
     {
         cc.logger.log("%s = %s".format(a, b))
-        val e = equalVars(a)
-        val f = equalVars(b)
-        if (domains(a) != d) {
+        val e = cc.equalVars(a)
+        val f = cc.equalVars(b)
+        if (cc.domains(a) != d) {
             e.foreach(a => reduceDomain(a, d))
         }
-        if (domains(b) != d) {
+        if (cc.domains(b) != d) {
             f.foreach(a => reduceDomain(a, d))
         }
         if (e.size > f.size) {
             e ++= f
-            f.foreach(a => equalVars += a -> e)
+            f.foreach(a => cc.equalVars += a -> e)
         } else {
             f ++= e
-            e.foreach(a => equalVars += a -> f)
+            e.foreach(a => cc.equalVars += a -> f)
         }
     }
 
     private def propagateEquality
-        [V <: AnyValue]
+        [V <: Value[V]]
         (a: Expr, d: Domain[V])
-        (implicit valueTraits: ValueTraits[V]):
+        (using valueTraits: ValueTraits[V]):
         Unit =
     {
         cc.logger.log("%s = %s".format(a, d))
-        val e = equalVars(a)
-        if (domains(a) != d) {
+        val e = cc.equalVars(a)
+        if (cc.domains(a) != d) {
             e.foreach(a => reduceDomain(a, d))
         }
     }
 
     private def reduceDomain
-        [V <: AnyValue]
+        [V <: Value[V]]
         (a: Expr, d: Domain[V])
-        (implicit valueTraits: ValueTraits[V]):
+        (using valueTraits: ValueTraits[V]):
         Unit =
     {
         if (d.isEmpty) {
             throw new yuck.flatzinc.compiler.DomainWipeOutException(a)
         }
-        assert(d.isSubsetOf(valueTraits.safeDowncast(domains(a))))
-        domains += a -> d
+        assert(d.isSubsetOf(valueTraits.safeDowncast(cc.domains(a))))
+        cc.domains += a -> d
     }
 
     private def getExprType(a: Expr): Type = a match {
@@ -257,8 +262,8 @@ final class DomainInitializer
         case IntConst(_) => IntType(None)
         case IntSetConst(_) => IntSetType(None)
         case FloatConst(_) => FloatType(None)
-        case Term(id, Nil) => cc.ast.varDeclsByName(id).varType
-        case ArrayAccess(id, _) => cc.ast.varDeclsByName(id).varType.asInstanceOf[ArrayType].baseType
+        case Term(id, Nil) => cc.ast.paramDeclsByName.getOrElse(id, cc.ast.varDeclsByName(id)).valueType
+        case ArrayAccess(id, _) => cc.ast.paramDeclsByName.getOrElse(id, cc.ast.varDeclsByName(id)).valueType.asInstanceOf[ArrayType].baseType
     }
 
     private def checkTypeCompatibility(t: Type, u: Type) = (t, u) match {
@@ -291,23 +296,23 @@ final class DomainInitializer
     // range or a range list.
     private def revisitIntegerSetDomains(): Unit = {
         val keysToIntegerSetDomains =
-            domains.keysIterator.filter(domains(_).isInstanceOf[IntegerSetDomain]).toList
+            cc.domains.keysIterator.filter(cc.domains(_).isInstanceOf[IntegerSetDomain]).toList
         val nonBitSetDomainExists =
-            keysToIntegerSetDomains.exists(domains(_) match {
-                case d: EmptyIntegerSetDomain.type => false
+            keysToIntegerSetDomains.exists(cc.domains(_) match {
+                case _: EmptyIntegerSetDomain.type => false
                 case d: SingletonIntegerSetDomain => ! d.base.isInstanceOf[SixtyFourBitSet]
                 case d: IntegerPowersetDomain => ! d.base.isInstanceOf[SixtyFourBitSet]
             })
         if (nonBitSetDomainExists) {
-            for (expr <- keysToIntegerSetDomains) domains(expr) match {
-                case d: EmptyIntegerSetDomain.type =>
+            for (expr <- keysToIntegerSetDomains) cc.domains(expr) match {
+                case _: EmptyIntegerSetDomain.type =>
                 case d: SingletonIntegerSetDomain =>
                     if (d.base.isInstanceOf[SixtyFourBitSet]) {
-                         domains.put(expr, new SingletonIntegerSetDomain(IntegerDomain(d.base.values)))
+                         cc.domains.put(expr, new SingletonIntegerSetDomain(IntegerDomain(d.base.values)))
                     }
                 case d: IntegerPowersetDomain =>
                     if (d.base.isInstanceOf[SixtyFourBitSet]) {
-                         domains.put(expr, new IntegerPowersetDomain(IntegerDomain(d.base.values)))
+                         cc.domains.put(expr, new IntegerPowersetDomain(IntegerDomain(d.base.values)))
                     }
             }
         }
